@@ -5,6 +5,9 @@ import Dashboard from "./pages/Dashboard";
 import Messaging from "./pages/Messaging";
 import Payments from "./pages/Payments";
 import Members from "./pages/Members";
+import Partners from "./pages/Partners";
+import PartnerDirectory from "./pages/PartnerDirectory";
+
 
 function App() {
   return (
@@ -14,6 +17,10 @@ function App() {
         <Route path="/members" element={<Members />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/messaging" element={<Messaging />} />
+        <Route path="/partners" element={<Partners />} />
+
+<Route path="/partners/directory" element={<PartnerDirectory />} />
+
       </Routes>
     </MainLayout>
   );
