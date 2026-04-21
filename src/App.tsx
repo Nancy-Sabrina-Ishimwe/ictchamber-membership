@@ -7,6 +7,7 @@ import Payments from "./pages/Payments";
 import Members from "./pages/Members";
 import Partners from "./pages/Partners";
 import PartnerDirectory from "./pages/PartnerDirectory";
+import Renewals from "./pages/Renewals";
 
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/payments" element={<Payments />} />
         <Route path="/messaging" element={<Messaging />} />
         <Route path="/partners" element={<Partners />} />
+         <Route path="/renewals" element={<Renewals />} />
 
 <Route path="/partners/directory" element={<PartnerDirectory />} />
 
