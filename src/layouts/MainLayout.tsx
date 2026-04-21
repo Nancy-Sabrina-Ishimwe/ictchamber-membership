@@ -24,18 +24,19 @@ export default function MainLayout({ children }: Props) {
     <div className="flex h-screen bg-[#F5F7FA]">
       
       {/* Sidebar */}
-      <div className="w-64 bg-black text-white flex flex-col justify-between">
+      <div className="w-64 bg-black text-white flex flex-col h-screen">
         
-        {/* Top */}
-        <div>
+        {/* Top section (takes remaining space) */}
+        <div className="flex-1 flex flex-col min-h-0">
+          
           {/* Logo */}
           <div className="p-6 border-b border-gray-800 flex items-center gap-2">
             <img src={logoict} alt="ICT Chamber" className="w-6 h-6" />
             <span className="text-sm font-semibold">ICT CHAMBER</span>
           </div>
 
-          {/* Menu */}
-          <nav className="px-4 py-6 space-y-2 text-sm">
+          {/* Menu (scrollable if needed) */}
+          <nav className="flex-1 px-4 py-6 space-y-2 text-sm overflow-y-auto">
             <p className="text-gray-500 text-xs mb-3">MAIN MENU</p>
 
             <MenuItem active icon={<LayoutDashboard size={18} />} label="Dashboard" />
@@ -50,7 +51,7 @@ export default function MainLayout({ children }: Props) {
           </nav>
         </div>
 
-        {/* Bottom */}
+        {/* Bottom section (ALWAYS visible) */}
         <div className="p-4 border-t border-gray-800 text-sm space-y-2">
           <MenuItem icon={<LifeBuoy size={18} />} label="Support" />
           <MenuItem icon={<LogOut size={18} />} label="Log Out" />
@@ -91,7 +92,7 @@ export default function MainLayout({ children }: Props) {
   );
 }
 
-/* Reusable Menu Item */
+/* Menu Item */
 function MenuItem({
   icon,
   label,
