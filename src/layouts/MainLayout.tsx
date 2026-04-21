@@ -13,6 +13,7 @@ import {
   Bell,
 } from "lucide-react";
 
+import { Link, useLocation } from "react-router-dom";
 import logoict from "../assets/logoict.png";
 
 type Props = {
@@ -20,13 +21,45 @@ type Props = {
 };
 
 export default function MainLayout({ children }: Props) {
+  const location = useLocation();
+
+  // 🔥 Dynamic title
+  const getTitle = () => {
+    switch (location.pathname) {
+      case "/":
+        return "Dashboard Overview";
+      case "/members":
+        return "Member Directory";
+      case "/payments":
+        return "Payments Ledger";
+      case "/messaging":
+        return "Bulk Messaging";
+      case "/partners":
+        return "Partners";
+      case "/services":
+        return "Services";
+      case "/events":
+        return "Events";
+      case "/reports":
+        return "Reports";
+      case "/settings":
+        return "Settings";
+      default:
+        return "Dashboard";
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-[#F5F7FA]">
+    <div
+      className={`flex h-screen ${
+        location.pathname === "/" ? "bg-[#F5F7FA]" : "bg-white"
+      }`}
+    >
       
       {/* Sidebar */}
       <div className="w-64 bg-black text-white flex flex-col h-screen">
         
-        {/* Top section (takes remaining space) */}
+        {/* Top */}
         <div className="flex-1 flex flex-col min-h-0">
           
           {/* Logo */}
@@ -35,26 +68,26 @@ export default function MainLayout({ children }: Props) {
             <span className="text-sm font-semibold">ICT CHAMBER</span>
           </div>
 
-          {/* Menu (scrollable if needed) */}
+          {/* Menu */}
           <nav className="flex-1 px-4 py-6 space-y-2 text-sm overflow-y-auto">
             <p className="text-gray-500 text-xs mb-3">MAIN MENU</p>
 
-            <MenuItem active icon={<LayoutDashboard size={18} />} label="Dashboard" />
-            <MenuItem icon={<Users size={18} />} label="Members" />
-            <MenuItem icon={<Handshake size={18} />} label="Partners" />
-            <MenuItem icon={<CreditCard size={18} />} label="Payments" />
-            <MenuItem icon={<Briefcase size={18} />} label="Services" />
-            <MenuItem icon={<Calendar size={18} />} label="Events" />
-            <MenuItem icon={<MessageSquare size={18} />} label="Bulk Messaging" />
-            <MenuItem icon={<BarChart3 size={18} />} label="Reports" />
-            <MenuItem icon={<Settings size={18} />} label="Settings" />
+            <MenuItem to="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
+            <MenuItem to="/members" icon={<Users size={18} />} label="Members" />
+            <MenuItem to="/partners" icon={<Handshake size={18} />} label="Partners" />
+            <MenuItem to="/payments" icon={<CreditCard size={18} />} label="Payments" />
+            <MenuItem to="/services" icon={<Briefcase size={18} />} label="Services" />
+            <MenuItem to="/events" icon={<Calendar size={18} />} label="Events" />
+            <MenuItem to="/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
+            <MenuItem to="/reports" icon={<BarChart3 size={18} />} label="Reports" />
+            <MenuItem to="/settings" icon={<Settings size={18} />} label="Settings" />
           </nav>
         </div>
 
-        {/* Bottom section (ALWAYS visible) */}
+        {/* Bottom */}
         <div className="p-4 border-t border-gray-800 text-sm space-y-2">
-          <MenuItem icon={<LifeBuoy size={18} />} label="Support" />
-          <MenuItem icon={<LogOut size={18} />} label="Log Out" />
+          <MenuItem to="/support" icon={<LifeBuoy size={18} />} label="Support" />
+          <MenuItem to="/logout" icon={<LogOut size={18} />} label="Log Out" />
         </div>
       </div>
 
@@ -63,9 +96,12 @@ export default function MainLayout({ children }: Props) {
         
         {/* Topbar */}
         <div className="h-16 bg-[#0F1E3A] text-white flex items-center justify-between px-6">
-          <h1 className="font-semibold text-lg">Dashboard Overview</h1>
+          
+          {/* Dynamic Title */}
+          <h1 className="font-semibold text-lg">{getTitle()}</h1>
 
           <div className="flex items-center gap-6">
+            
             {/* Notification */}
             <div className="relative cursor-pointer">
               <Bell size={20} />
@@ -92,26 +128,33 @@ export default function MainLayout({ children }: Props) {
   );
 }
 
-/* Menu Item */
+/* MenuItem */
 function MenuItem({
   icon,
   label,
-  active,
+  to,
 }: {
   icon: React.ReactNode;
   label: string;
-  active?: boolean;
+  to: string;
 }) {
+  const location = useLocation();
+
+  const isActive =
+    location.pathname === to ||
+    location.pathname.startsWith(to + "/");
+
   return (
-    <div
-      className={`flex items-center gap-3 px-4 py-2 rounded cursor-pointer ${
-        active
+    <Link
+      to={to}
+      className={`flex items-center gap-3 px-4 py-2 rounded transition-colors ${
+        isActive
           ? "bg-yellow-500 text-black font-medium"
-          : "hover:bg-gray-800"
+          : "hover:bg-gray-800 text-white"
       }`}
     >
       {icon}
-      {label}
-    </div>
+      <span>{label}</span>
+    </Link>
   );
 }
