@@ -26,7 +26,7 @@ type ActivityItem = {
 /* COMPONENT */
 
 export default function Services() {
-  const navigate = useNavigate(); // ✅ FIXED
+  const navigate = useNavigate(); //
 
   /* DATA */
 
