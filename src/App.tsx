@@ -8,6 +8,8 @@ import Members from "./pages/Members";
 import Partners from "./pages/Partners";
 import PartnerDirectory from "./pages/PartnerDirectory";
 import Renewals from "./pages/Renewals";
+import Services from "./pages/Services";
+import DeliveredServices from "./pages/DeliveredServices";
 
 
 function App() {
@@ -20,8 +22,12 @@ function App() {
         <Route path="/messaging" element={<Messaging />} />
         <Route path="/partners" element={<Partners />} />
          <Route path="/renewals" element={<Renewals />} />
+         <Route path="/services" element={<Services />} />
 
 <Route path="/partners/directory" element={<PartnerDirectory />} />
+<Route path="/services/delivered" element={<DeliveredServices />} />
+
+
 
       </Routes>
     </MainLayout>
