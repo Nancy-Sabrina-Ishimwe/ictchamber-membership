@@ -10,6 +10,9 @@ import PartnerDirectory from "./pages/PartnerDirectory";
 import Renewals from "./pages/Renewals";
 import Services from "./pages/Services";
 import DeliveredServices from "./pages/DeliveredServices";
+import Events from "./pages/Events";
+import Reports from "./pages/Reports";
+
 
 
 function App() {
@@ -23,6 +26,11 @@ function App() {
         <Route path="/partners" element={<Partners />} />
          <Route path="/renewals" element={<Renewals />} />
          <Route path="/services" element={<Services />} />
+         <Route path="/events" element={<Events />} />
+         {/* <Route path="/bulk-messaging" element={<BulkMessaging />} /> */}
+         <Route path="/reports" element={<Reports />} />
+
+   
 
 <Route path="/partners/directory" element={<PartnerDirectory />} />
 <Route path="/services/delivered" element={<DeliveredServices />} />

@@ -8,7 +8,7 @@ import {
   Clock,
 } from "lucide-react";
 
-export default function Messaging() {
+export default function BulkMessaging() {
   const [type, setType] = useState<"email" | "sms">("email");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");

@@ -15,60 +15,61 @@ import { useNavigate } from "react-router-dom";
 import type { Payment } from "../types/payment";
 import { getPayments } from "../services/paymentService";
 
+/* ✅ MOVE OUTSIDE COMPONENT (FIXES WARNING) */
+const fallbackData: Payment[] = [
+  {
+    id: "1",
+    companyName: "MTN Rwanda",
+    tier: "Platinum Tier",
+    period: "2023-2024",
+    amount: 1000000,
+    datePaid: "2023-10-15",
+    method: "Bank Transfer",
+    reference: "TRX-1092",
+    status: "Paid",
+  },
+  {
+    id: "2",
+    companyName: "Kasha Technologies",
+    tier: "Gold Tier",
+    period: "2023-2024",
+    amount: 100000,
+    datePaid: "2023-10-14",
+    method: "Mobile Money",
+    reference: "TRX-1091",
+    status: "Paid",
+  },
+  {
+    id: "3",
+    companyName: "Awesomity Lab",
+    tier: "Silver Tier",
+    period: "2023-2024",
+    amount: 300000,
+    datePaid: "2023-10-12",
+    method: "Credit Card",
+    reference: "TRX-1090",
+    status: "Pending",
+  },
+  {
+    id: "4",
+    companyName: "AC Group",
+    tier: "Platinum Tier",
+    period: "2023-2024",
+    amount: 600000,
+    datePaid: "2023-10-10",
+    method: "Bank Transfer",
+    reference: "TRX-1089",
+    status: "Failed",
+  },
+];
+
 export default function Payments() {
   const navigate = useNavigate();
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // fallback data
-  const fallbackData: Payment[] = [
-    {
-      id: "1",
-      companyName: "MTN Rwanda",
-      tier: "Platinum Tier",
-      period: "2023-2024",
-      amount: 1000000,
-      datePaid: "2023-10-15",
-      method: "Bank Transfer",
-      reference: "TRX-1092",
-      status: "Paid",
-    },
-    {
-      id: "2",
-      companyName: "Kasha Technologies",
-      tier: "Gold Tier",
-      period: "2023-2024",
-      amount: 100000,
-      datePaid: "2023-10-14",
-      method: "Mobile Money",
-      reference: "TRX-1091",
-      status: "Paid",
-    },
-    {
-      id: "3",
-      companyName: "Awesomity Lab",
-      tier: "Silver Tier",
-      period: "2023-2024",
-      amount: 300000,
-      datePaid: "2023-10-12",
-      method: "Credit Card",
-      reference: "TRX-1090",
-      status: "Pending",
-    },
-    {
-      id: "4",
-      companyName: "AC Group",
-      tier: "Platinum Tier",
-      period: "2023-2024",
-      amount: 600000,
-      datePaid: "2023-10-10",
-      method: "Bank Transfer",
-      reference: "TRX-1089",
-      status: "Failed",
-    },
-  ];
-
+  /* ✅ CLEAN useEffect (NO WARNING) */
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -84,7 +85,7 @@ export default function Payments() {
     fetchData();
   }, []);
 
-  // stats
+  /* ===== STATS ===== */
   const totalCollected = payments
     .filter((p) => p.status === "Paid")
     .reduce((acc, p) => acc + p.amount, 0);
@@ -121,14 +122,14 @@ export default function Payments() {
         <StatCard
           icon={<Wallet size={18} />}
           title="Total Collected (YTD)"
-          value={`rwf ${formatMoney(totalCollected)}`}
+          value={`RWF ${formatMoney(totalCollected)}`}
           bg="bg-gray-100"
         />
 
         <StatCard
           icon={<Clock size={18} />}
           title="Pending"
-          value={`rwf ${formatMoney(pendingAmount)}`}
+          value={`RWF ${formatMoney(pendingAmount)}`}
           bg="bg-yellow-100"
         />
 
