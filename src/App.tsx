@@ -12,6 +12,7 @@ import Services from "./pages/Services";
 import DeliveredServices from "./pages/DeliveredServices";
 import Events from "./pages/Events";
 import Reports from "./pages/Reports";
+import ServiceUsage from "./services/ServiceUsage";
 
 
 
@@ -34,6 +35,7 @@ function App() {
 
 <Route path="/partners/directory" element={<PartnerDirectory />} />
 <Route path="/services/delivered" element={<DeliveredServices />} />
+<Route path="/reports/service-usage" element={<ServiceUsage />} />
 
 
 
