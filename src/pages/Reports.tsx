@@ -5,8 +5,6 @@ import {
   Clock,
   Wallet,
   Calendar,
-  FileDown,
-  Printer,
 } from "lucide-react";
 
 import {
@@ -21,10 +19,15 @@ import {
   CartesianGrid,
 } from "recharts";
 
-/* COLORS (MATCH FIGMA) */
-const COLORS = ["#0F2A44", "#EAB308", "#CBD5F5", "#F97316"];
+/* ================= TYPES ================= */
 
-/* DATA */
+type ChartItem = {
+  name: string;
+  value: number;
+};
+
+/* ================= DATA ================= */
+
 const revenueData = [
   { month: "Jan", value: 6 },
   { month: "Feb", value: 7 },
@@ -40,63 +43,72 @@ const revenueData = [
   { month: "Dec", value: 22 },
 ];
 
-const categoryData = [
+const categoryData: ChartItem[] = [
   { name: "Platinum", value: 450 },
   { name: "Gold", value: 320 },
   { name: "Silver", value: 250 },
   { name: "Bronze", value: 220 },
 ];
 
-const clusterData = [
+const clusterData: ChartItem[] = [
   { name: "Fintech", value: 142 },
+  { name: "Drones", value: 38 },
+  { name: "Infrastructure", value: 87 },
   { name: "AI", value: 64 },
   { name: "E-commerce", value: 115 },
-  { name: "Infrastructure", value: 87 },
 ];
 
-const typeData = [
-  { name: "Commercial", value: 50 },
-  { name: "Partners", value: 20 },
-  { name: "Business", value: 45 },
+const typeData: ChartItem[] = [
+  { name: "Commercial Company", value: 50 },
+  { name: "Program Partners", value: 20 },
+  { name: "Multiple Business", value: 45 },
+  { name: "Program", value: 13 },
   { name: "Associated", value: 25 },
 ];
 
+/* COLORS (match design) */
+const COLORS = [
+  "#0F2A44",
+  "#EAB308",
+  "#94A3B8",
+  "#F97316",
+  "#6366F1",
+];
+
+/* ================= PAGE ================= */
+
 export default function Reports() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [tab, setTab] = useState<"overview" | "services">("overview");
 
   return (
     <div className="space-y-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Member Directory</h2>
-
-        <div className="flex gap-2">
-          <Button icon={<FileDown size={16} />} label="Export Excel" />
-          <Button icon={<FileDown size={16} />} label="Export PDF" />
-          <Button icon={<Printer size={16} />} label="Print" />
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold">Member Directory</h2>
+        <p className="text-gray-500 text-sm">
+          Key metrics and trends for membership and financials.
+        </p>
       </div>
 
       {/* TABS */}
       <div className="flex gap-2">
-        <Tab active={activeTab === "overview"} onClick={() => setActiveTab("overview")} label="Overview" />
-        <Tab active={activeTab === "services"} onClick={() => setActiveTab("services")} label="Service usage" />
+        <Tab label="Overview" active={tab === "overview"} onClick={() => setTab("overview")} />
+        <Tab label="Service usage" active={tab === "services"} onClick={() => setTab("services")} />
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded-xl shadow-sm flex gap-4 items-center border">
-
-        <div className="flex items-center gap-2 border px-3 py-2 rounded-md text-sm text-gray-600">
+      <div className="bg-white p-4 rounded-xl shadow-sm border flex gap-4 items-center">
+        <div className="flex items-center gap-2 border px-3 py-2 rounded-md text-sm">
           <Calendar size={16} />
           YTD (Jan - Dec)
         </div>
 
-        <select className="border px-3 py-2 rounded-md text-sm text-gray-600">
+        <select className="border px-3 py-2 rounded-md text-sm">
           <option>Select Membership type</option>
         </select>
 
-        <select className="border px-3 py-2 rounded-md text-sm text-gray-600">
+        <select className="border px-3 py-2 rounded-md text-sm">
           <option>Select Cluster</option>
         </select>
 
@@ -105,25 +117,25 @@ export default function Reports() {
         </button>
       </div>
 
-      {/* STATS */}
+      {/* STAT CARDS */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard title="Total Members" value="1,240" change="+12%" icon={<Users />} />
-        <StatCard title="Pending Applications" value="32" change="14 require review" icon={<UserPlus />} />
-        <StatCard title="Renewals Due" value="18" change="5 overdue" icon={<Clock />} />
-        <StatCard title="Membership Revenue" value="45,200 RWF" change="+8.4%" icon={<Wallet />} />
+        <StatCard title="Total Members" value="1,240" change="+12% from last year" icon={<Users size={18} />} />
+        <StatCard title="Pending Applications" value="32" change="14 require review" icon={<UserPlus size={18} />} />
+        <StatCard title="Renewals Due" value="18" change="5 overdue by 30+ days" icon={<Clock size={18} />} />
+        <StatCard title="Membership Revenue" value="45,200 RWF" change="+8.4% vs previous period" icon={<Wallet size={18} />} />
       </div>
 
-      {/* CHARTS */}
+      {/* TOP SECTION */}
       <div className="grid grid-cols-3 gap-6">
 
-        {/* LINE */}
+        {/* LINE CHART */}
         <div className="col-span-2 bg-white p-6 rounded-xl shadow-sm border">
-          <h3 className="font-semibold text-gray-800">Revenue Growth</h3>
+          <h3 className="font-semibold">Revenue Growth</h3>
           <p className="text-sm text-gray-500 mb-4">
             Monthly breakdown of membership fee collection.
           </p>
 
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={260}>
             <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis dataKey="month" />
@@ -142,6 +154,7 @@ export default function Reports() {
         <ChartCard title="Members by Category" data={categoryData} />
       </div>
 
+      {/* LOWER SECTION */}
       <div className="grid grid-cols-2 gap-6">
         <ChartCard title="Members by Cluster" data={clusterData} />
         <ChartCard title="Members by Type" data={typeData} />
@@ -150,17 +163,17 @@ export default function Reports() {
   );
 }
 
-/* ================= UI COMPONENTS ================= */
+/* ================= SMALL COMPONENTS ================= */
 
-function Button({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <button className="flex items-center gap-2 border px-4 py-2 rounded-md text-sm hover:bg-gray-50">
-      {icon} {label}
-    </button>
-  );
-}
-
-function Tab({ active, label, onClick }: any) {
+function Tab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -173,12 +186,22 @@ function Tab({ active, label, onClick }: any) {
   );
 }
 
-function StatCard({ title, value, change, icon }: any) {
+function StatCard({
+  title,
+  value,
+  change,
+  icon,
+}: {
+  title: string;
+  value: string;
+  change: string;
+  icon: React.ReactNode;
+}) {
   return (
     <div className="bg-white p-5 rounded-xl shadow-sm border flex justify-between items-center">
       <div>
         <p className="text-sm text-gray-500">{title}</p>
-        <h3 className="text-2xl font-semibold mt-1">{value}</h3>
+        <h3 className="text-2xl font-bold">{value}</h3>
         <p className="text-xs text-gray-400">{change}</p>
       </div>
 
@@ -189,28 +212,66 @@ function StatCard({ title, value, change, icon }: any) {
   );
 }
 
-function ChartCard({ title, data }: any) {
+/* 🔥 FIXED CHART CARD (LIKE DESIGN) */
+function ChartCard({
+  title,
+  data,
+}: {
+  title: string;
+  data: ChartItem[];
+}) {
+  const total = data.reduce((acc, item) => acc + item.value, 0);
+
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border">
-      <h3 className="font-semibold text-gray-800 mb-4">{title}</h3>
+      <h3 className="font-semibold mb-4">{title}</h3>
 
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie data={data} innerRadius={60} outerRadius={90} dataKey="value">
-            {data.map((_: any, i: number) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
+      <div className="flex items-center gap-6">
 
-      <div className="mt-4 text-sm space-y-2">
-        {data.map((item: any, i: number) => (
-          <div key={i} className="flex justify-between">
-            <span>{item.name}</span>
-            <span className="font-medium">{item.value}</span>
-          </div>
-        ))}
+        {/* CHART */}
+        <div className="w-1/2">
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={data}
+                innerRadius={60}
+                outerRadius={90}
+                dataKey="value"
+                paddingAngle={2}
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* LEGEND */}
+        <div className="w-1/2 space-y-3 text-sm">
+          {data.map((item, i) => {
+            const percent = ((item.value / total) * 100).toFixed(1);
+
+            return (
+              <div key={item.name} className="flex justify-between items-center">
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                  />
+                  <span className="text-gray-700">{item.name}</span>
+                </div>
+
+                <div className="flex gap-4 text-gray-600">
+                  <span>{item.value}</span>
+                  <span>{percent}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
     </div>
   );
