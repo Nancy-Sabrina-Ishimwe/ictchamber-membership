@@ -16,6 +16,7 @@ import ServiceUsage from "./services/ServiceUsage";
 import Settings from "./pages/Settings";
 import SecuritySettings from "./pages/SecuritySettings";
 import GeneralSettings from "./pages/GeneralSettings";
+import UserManagement from "./pages/UserManagement";
 
 
 
@@ -35,6 +36,7 @@ function App() {
          <Route path="/settings" element={<Settings />} />
          <Route path="/settings/security" element={<SecuritySettings />} />
          <Route path="/settings/general" element={<GeneralSettings />} />
+         <Route path="/settings/users" element={<UserManagement />} />
 
    
 

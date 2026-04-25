@@ -81,7 +81,7 @@ export default function Settings() {
 
         <Tab
           label="User management"
-          onClick={() => navigate("/renewals")}
+          onClick={() => navigate("/settings/users")}
         />
 
         <Tab label="General setting"

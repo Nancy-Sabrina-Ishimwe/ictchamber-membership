@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { KeyRound, ShieldCheck, Clock, Smartphone } from "lucide-react";
+import { KeyRound, ShieldCheck, Clock,  Smartphone } from "lucide-react";
 import { useState } from "react";
 
 type Log = {
@@ -47,11 +47,10 @@ export default function SecuritySettings() {
       {/* TABS */}
       <div className="flex gap-2 bg-white border rounded-xl p-2 w-fit">
         <Tab label="User roles & access management" onClick={() => navigate("/settings")} />
-        <Tab label="User management" onClick={() => navigate("/renewals")} />
+        <Tab label="User management" onClick={() => navigate("/settings/user")} />
         <Tab label="General setting" onClick={() => navigate("/settings/general")} />
         <Tab label="Security settings" active />
       </div>
-
       {/* CARDS */}
       <div className="grid grid-cols-3 gap-6">
 
