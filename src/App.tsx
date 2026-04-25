@@ -13,6 +13,9 @@ import DeliveredServices from "./pages/DeliveredServices";
 import Events from "./pages/Events";
 import Reports from "./pages/Reports";
 import ServiceUsage from "./services/ServiceUsage";
+import Settings from "./pages/Settings";
+import SecuritySettings from "./pages/SecuritySettings";
+import GeneralSettings from "./pages/GeneralSettings";
 
 
 
@@ -28,8 +31,10 @@ function App() {
          <Route path="/renewals" element={<Renewals />} />
          <Route path="/services" element={<Services />} />
          <Route path="/events" element={<Events />} />
-         {/* <Route path="/bulk-messaging" element={<BulkMessaging />} /> */}
          <Route path="/reports" element={<Reports />} />
+         <Route path="/settings" element={<Settings />} />
+         <Route path="/settings/security" element={<SecuritySettings />} />
+         <Route path="/settings/general" element={<GeneralSettings />} />
 
    
 
