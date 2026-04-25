@@ -97,7 +97,7 @@ export default function Payments() {
   const failedCount = payments.filter((p) => p.status === "Failed").length;
 
   return (
-    <div className="space-y-6">
+    <div className="bg-slate-100 space-y-6">
 
       {/* HEADER */}
       <div className="flex justify-between items-start">

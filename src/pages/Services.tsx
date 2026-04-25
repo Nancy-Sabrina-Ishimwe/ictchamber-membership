@@ -115,7 +115,6 @@ export default function Services() {
             📅 Last 30 Days
           </button>
 
-          {/* ✅ FIXED NAVIGATION */}
           <button
             onClick={() => navigate("/services/delivered")}
             className="bg-yellow-500 px-4 py-2 rounded text-sm font-medium"

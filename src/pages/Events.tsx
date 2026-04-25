@@ -54,7 +54,7 @@ export default function Events() {
     <div className="space-y-6">
 
       {/* SEARCH + BUTTON */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <div className="flex items-center border rounded-md px-3 py-2 w-[400px]">
           <Search size={16} className="text-gray-400" />
           <input
@@ -92,7 +92,8 @@ export default function Events() {
 
 function EventCard({ event }: { event: Event }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-between h-[260px]">
+    // <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-between h-[260px]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:border-black hover:shadow-md transition-all duration-200 p-5 flex flex-col justify-between h-[260px]">
 
       {/* TOP */}
       <div className="space-y-3">

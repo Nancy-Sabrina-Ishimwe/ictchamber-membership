@@ -46,7 +46,7 @@ export default function Members() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="bg-slate-100 space-y-6">
 
       {/* Header */}
       <div className="flex justify-between items-center">
