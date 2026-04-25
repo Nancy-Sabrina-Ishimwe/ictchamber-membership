@@ -1,52 +1,32 @@
-import { useState } from "react";
 import {
   Mail,
   MessageSquare,
-  Filter,
+  Eye,
   Paperclip,
-  Send,
   Clock,
+  Send,
 } from "lucide-react";
 
 export default function BulkMessaging() {
-  const [type, setType] = useState<"email" | "sms">("email");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-slate-100">
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">New Broadcast</h2>
-          <p className="text-gray-500 text-sm">
+          <h2 className="text-2xl font-semibold">New Broadcast</h2>
+          <p className="text-sm text-gray-500">
             Compose and send messages to targeted member groups.
           </p>
         </div>
 
         {/* TOGGLE */}
-        <div className="flex border rounded-md overflow-hidden">
-          <button
-            onClick={() => setType("email")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm ${
-              type === "email"
-                ? "bg-gray-200 font-medium"
-                : "bg-white"
-            }`}
-          >
+        <div className="flex bg-gray-100 rounded-md p-1">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-md text-sm shadow-sm">
             <Mail size={16} />
             Email
           </button>
-
-          <button
-            onClick={() => setType("sms")}
-            className={`flex items-center gap-2 px-4 py-2 text-sm ${
-              type === "sms"
-                ? "bg-gray-200 font-medium"
-                : "bg-white"
-            }`}
-          >
+          <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500">
             <MessageSquare size={16} />
             SMS Text
           </button>
@@ -60,145 +40,173 @@ export default function BulkMessaging() {
         <div className="col-span-2 space-y-6">
 
           {/* TARGET AUDIENCE */}
-          <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Filter size={16} />
-                Target Audience
-              </h3>
+          <div className="bg-white border rounded-xl shadow-sm">
 
-              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+            <div className="flex justify-between items-center px-5 py-4 border-b">
+              <h3 className="font-semibold">Target Audience</h3>
+              <span className="text-xs bg-gray-100 px-3 py-1 rounded-full">
                 ~1054 Recipients
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <select className="border px-3 py-2 rounded text-sm">
-                <option>Business Category</option>
-              </select>
+            <div className="p-5 space-y-4">
 
-              <select className="border px-3 py-2 rounded text-sm">
-                <option>Membership Status</option>
-              </select>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <select className="border rounded-md px-3 py-2 text-sm">
+                  <option>Business Category</option>
+                </select>
 
-            <div>
-              <p className="text-sm text-gray-600 mb-2">
-                Exclude Specific Members (Optional)
-              </p>
-
-              <div className="border rounded px-3 py-2 flex items-center gap-2">
-                <span className="bg-gray-100 px-2 py-1 text-xs rounded">
-                  RwandaTech Solutions ✕
-                </span>
-
-                <input
-                  placeholder="Search to exclude..."
-                  className="outline-none text-sm w-full"
-                />
+                <select className="border rounded-md px-3 py-2 text-sm">
+                  <option>Membership Status</option>
+                </select>
               </div>
+
+              <div>
+                <p className="text-sm mb-2">
+                  Exclude Specific Members (Optional)
+                </p>
+
+                <div className="flex items-center border rounded-md px-3 py-2 gap-2 flex-wrap">
+                  <span className="bg-gray-100 px-2 py-1 rounded text-xs">
+                    RwandaTech Solutions ✕
+                  </span>
+
+                  <input
+                    placeholder="Search to exclude..."
+                    className="flex-1 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
             </div>
           </div>
 
           {/* MESSAGE CONTENT */}
-          <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-            <h3 className="font-semibold">Message Content</h3>
+          <div className="bg-white border rounded-xl shadow-sm">
 
-            {/* SUBJECT */}
-            {type === "email" && (
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g., Important Update from Rwanda ICT Chamber"
-                className="w-full border px-3 py-2 rounded text-sm"
-              />
-            )}
+            <div className="px-5 py-4 border-b">
+              <h3 className="font-semibold">Message Content</h3>
+            </div>
 
-            {/* BODY */}
-            <div className="border rounded-md">
-              <div className="border-b px-3 py-2 text-sm flex gap-3 text-gray-500">
-                B I U • 😊
+            <div className="p-5 space-y-4">
+
+              {/* SUBJECT */}
+              <div>
+                <p className="text-sm mb-1">Subject Line</p>
+                <input
+                  placeholder="e.g., Important Update from Rwanda ICT Chamber"
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                />
               </div>
 
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={6}
-                placeholder="Write your email content here..."
-                className="w-full px-3 py-2 text-sm outline-none resize-none"
-              />
+              {/* EDITOR */}
+              <div className="border rounded-md">
+
+                {/* TOOLBAR */}
+                <div className="flex gap-4 px-3 py-2 border-b text-gray-500 text-sm">
+                  <b>B</b>
+                  <i>I</i>
+                  <span>≡</span>
+                  <span>•</span>
+                  <span>😊</span>
+                </div>
+
+                {/* TEXTAREA */}
+                <textarea
+                  placeholder="Write your email content here..."
+                  className="w-full p-3 h-40 outline-none text-sm"
+                />
+
+                {/* FOOTER */}
+                <div className="flex justify-between items-center px-3 py-2 border-t text-xs text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <Paperclip size={14} />
+                    Attach Files
+                  </div>
+
+                  <span>Max 5MB total</span>
+                </div>
+
+              </div>
+
             </div>
 
-            {/* ATTACH */}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Paperclip size={16} />
-              Attach Files
-              <span className="text-xs">Max 5MB total</span>
-            </div>
+            {/* ACTIONS */}
+            <div className="flex justify-between items-center px-5 py-4 border-t">
 
-            {/* BUTTONS */}
-            <div className="flex justify-between pt-3">
-              <button className="border px-4 py-2 rounded text-sm">
+              <button className="border px-4 py-2 rounded-md text-sm">
                 Save as Draft
               </button>
 
-              <div className="flex gap-2">
-                <button className="flex items-center gap-2 border px-4 py-2 rounded text-sm">
+              <div className="flex gap-3">
+                <button className="flex items-center gap-2 border px-4 py-2 rounded-md text-sm text-gray-500">
                   <Clock size={14} />
                   Schedule
                 </button>
 
-                <button className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded text-sm font-medium">
+                <button className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded-md text-sm font-medium text-black">
                   <Send size={14} />
                   Send Now
                 </button>
               </div>
+
             </div>
+
           </div>
         </div>
 
         {/* RIGHT SIDE - PREVIEW */}
-        <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
+        <div className="bg-white border rounded-xl shadow-sm">
 
-          <h3 className="font-semibold flex items-center gap-2">
-            👁 Live Preview
-          </h3>
+          <div className="flex items-center gap-2 px-5 py-4 border-b">
+            <Eye size={16} />
+            <h3 className="font-semibold">Live Preview</h3>
+          </div>
 
-          <div className="border rounded-lg overflow-hidden">
+          <div className="p-4">
 
-            {/* HEADER */}
-            <div className="bg-gray-800 text-white text-xs p-2">
-              preview.email.client
-            </div>
+            {/* EMAIL MOCK */}
+            <div className="bg-gray-100 rounded-lg p-4">
 
-            {/* BODY */}
-            <div className="p-4 text-sm space-y-3">
-              <p>
-                <strong>From:</strong> ICT Chamber Communications
-              </p>
-
-              <p>
-                <strong>To:</strong> [Member Company Name]
-              </p>
-
-              <p className="font-medium">
-                {subject || "Subject line will appear here"}
-              </p>
-
-              <div className="text-gray-500">
-                {body ||
-                  "Your email body content will be rendered here."}
+              <div className="bg-[#0F2A44] text-white p-2 rounded-md mb-3 text-xs">
+                preview.email.client
               </div>
+
+              <p className="text-xs text-gray-600">
+                From: ICT Chamber Communications
+              </p>
+
+              <p className="text-xs text-gray-600 mb-2">
+                To: [Member Company Name]
+              </p>
+
+              <p className="text-sm font-medium mb-4">
+                Subject line will appear here
+              </p>
+
+              <p className="text-xs text-gray-400">
+                Your email body content will be rendered here...
+              </p>
+
             </div>
 
             {/* FOOTER */}
-            <div className="bg-gray-50 text-xs text-center p-3 text-gray-400">
-              You are receiving this email because you are a registered member
-              of the Rwanda ICT Chamber.
+            <div className="mt-4 text-center text-xs text-gray-400">
+              You are receiving this email because you are a registered member.
+              <br />
+              <span className="underline cursor-pointer">
+                Unsubscribe
+              </span>{" "}
+              |{" "}
+              <span className="underline cursor-pointer">
+                Update Preferences
+              </span>
             </div>
+
           </div>
 
         </div>
+
       </div>
     </div>
   );
