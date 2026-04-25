@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { KeyRound, ShieldCheck, Clock, Phone, Smartphone } from "lucide-react";
+import { KeyRound, ShieldCheck, Clock, Smartphone } from "lucide-react";
 import { useState } from "react";
 
 type Log = {
