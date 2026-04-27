@@ -9,6 +9,7 @@ import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
 import GeneralSettings from './pages/GeneralSettings';
 import Members from './pages/Members';
+import MemberProfile from './pages/MemberProfile';
 import Messaging from './pages/Messaging';
 import PartnerDirectory from './pages/PartnerDirectory';
 import Partners from './pages/Partners';
@@ -66,6 +67,14 @@ function App() {
           element={
             <AdminShell>
               <Members />
+            </AdminShell>
+          }
+        />
+        <Route
+          path="/admin/members/:id"
+          element={
+            <AdminShell>
+              <MemberProfile />
             </AdminShell>
           }
         />

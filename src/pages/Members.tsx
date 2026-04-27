@@ -1,5 +1,6 @@
 import { Search, Filter, ChevronDown, MoreVertical, Eye, CheckCircle2, XCircle, Clock3 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 type Member = {
   id: string;
@@ -79,6 +80,7 @@ function SelectFilter({ label }: { label: string }) {
 }
 
 export default function Members() {
+  const navigate = useNavigate();
   const [openActionFor, setOpenActionFor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -155,7 +157,44 @@ export default function Members() {
                   <p className="text-sm font-semibold text-gray-900">{m.name}</p>
                   <p className="text-xs text-blue-600 mt-0.5">{m.id}</p>
                 </div>
-                <StatusBadge status={m.status} />
+                <div className="flex items-start gap-2">
+                  <StatusBadge status={m.status} />
+                  <div className="relative inline-flex" data-member-action-menu>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenActionFor((prev) => (prev === m.id ? null : m.id));
+                      }}
+                      className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                      aria-label={`Open actions for ${m.name}`}
+                    >
+                      <MoreVertical size={14} />
+                    </button>
+
+                    {openActionFor === m.id ? (
+                      <div className="absolute right-0 top-7 z-20 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/members/${m.id}`)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          <Eye size={12} />
+                          View Profile
+                        </button>
+                        {renderStatusAction(m.status).map((action) => (
+                          <button
+                            key={action}
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            {action}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-1.5 text-xs">
                 <div><p className="text-gray-400">Cluster</p><p className="text-gray-700">{m.cluster}</p></div>
@@ -227,10 +266,11 @@ export default function Members() {
                         <div className="absolute right-0 top-8 z-20 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
                           <button
                             type="button"
+                            onClick={() => navigate(`/admin/members/${m.id}`)}
                             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
                           >
                             <Eye size={12} />
-                            View details
+                            View Profile
                           </button>
                           {renderStatusAction(m.status).map((action) => (
                             <button

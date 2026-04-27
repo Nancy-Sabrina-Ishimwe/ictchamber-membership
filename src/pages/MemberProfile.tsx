@@ -1,0 +1,736 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import {
+  ChevronLeft, Shield, Building2, MapPin, Mail, Phone, Globe,
+  FileText, Download, X, CreditCard, MessageSquare, CheckCircle2,
+  Bell, FileCheck, TrendingUp, Bold, Italic, AlignLeft, AlignCenter,
+  AlignRight, List, Image, Smile, Paperclip, Send, Calendar, Clock,
+  RotateCcw, ChevronLeft as ChLeft, ChevronRight, Users, Filter,
+} from "lucide-react";
+
+/* ============================================================
+   STATIC MOCK DATA
+============================================================ */
+const MEMBER = {
+  id: "ICT2024PN924",
+  name: "Hviewtech Group",
+  status: "Active" as const,
+  tier: "Platinum",
+  category: "Corporate Platinum",
+  cluster: "IT Hardware and Solutions",
+  location: "Kigali, Rwanda",
+  contact: {
+    name: "Jean Claude Niyomugabo",
+    title: "Chief Executive Officer",
+    email: "jc.niyomugabo@hviewtech.rw",
+    phone: "+250 788 123 456",
+    website: "www.hviewtech.com",
+    address: "Kigali Heights, 4th Floor, KG 7 Ave, Kigali, Rwanda",
+  },
+  registration: {
+    tin: "102938475",
+    rdb: "102938475-RCA",
+    category: "Software Development",
+    memberId: "MEM-2024-0042",
+  },
+  documents: [
+    { name: "Certificate of Incorporation.pdf", size: "1.2 MB", date: "15 Mar 2021" },
+    { name: "RRA Tax Clearance 2024.pdf", size: "845 KB", date: "28 Feb 2024" },
+    { name: "Company Profile.pdf", size: "3.4 MB", date: "10 Jan 2024" },
+  ],
+  membership: {
+    validFrom: "15 Mar 2021",
+    expiresOn: "15 Mar 2025",
+    daysRemaining: 378,
+    renewalNote: "Auto-renewal reminder scheduled for Feb 15, 2025",
+  },
+  payments: [
+    { invoiceId: "INV-2024-089", date: "18 Jan 2025", description: "Annual Platinum Renewal (2024-2025)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2023-112", date: "18 Jan 2024", description: "Annual Platinum Renewal (2023-2024)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2022-045", date: "18 Jan 2023", description: "Annual Platinum Renewal (2022-2023)", amount: "1,000,000", status: "Paid" },
+  ],
+  allPayments: [
+    { invoiceId: "INV-2024-089", date: "18 Jan 2025", description: "Annual Platinum Renewal (2025-202)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2023-112", date: "18 Jan 2024", description: "Annual Platinum Renewal (2024-2025)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2022-045", date: "18 Jan 2023", description: "Annual Platinum Renewal (2023-2024)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2023-112", date: "18 Jan 2022", description: "Annual Platinum Renewal (2022-2023)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2022-045", date: "18 Jan 2021", description: "Annual Platinum Renewal (2021-2022)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2022-045", date: "18 Jan 2020", description: "Annual Platinum Renewal (2020-2022)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2022-045", date: "18 Jan 2019", description: "Annual Platinum Renewal (2019-2020)", amount: "1,000,000", status: "Paid" },
+    { invoiceId: "INV-2023-112", date: "18 Jan 2010", description: "Annual Platinum Renewal (2018-2020)", amount: "1,000,000", status: "Paid" },
+  ],
+  activity: [
+    { type: "payment",  label: "Payment Received",        description: "RWF 1,000,000 received for 2024-2025 term.",              time: "10 Mar 2024, 14:30" },
+    { type: "email",    label: "Automated Reminder Sent", description: "Pre-renewal reminder email dispatched to primary contact.", time: "01 Mar 2024, 09:00" },
+    { type: "document", label: "Document Verified",       description: "Updated Tax Clearance Certificate approved.",               time: "28 Feb 2024, 11:15" },
+    { type: "upgrade",  label: "Membership Upgraded",     description: "Upgraded from Gold to Corporate Platinum.",                 time: "15 Mar 2023, 10:00" },
+  ],
+};
+
+const activityIconMap: Record<string, React.ReactNode> = {
+  payment:  <CreditCard   size={14} />,
+  email:    <Mail         size={14} />,
+  document: <FileCheck    size={14} />,
+  upgrade:  <TrendingUp   size={14} />,
+};
+
+const activityColorMap: Record<string, string> = {
+  payment:  "bg-green-100  text-green-600",
+  email:    "bg-blue-100   text-blue-600",
+  document: "bg-purple-100 text-purple-600",
+  upgrade:  "bg-yellow-100 text-yellow-600",
+};
+
+/* ============================================================
+   MAIN PAGE
+============================================================ */
+export default function MemberProfile() {
+  const navigate = useNavigate();
+  const [showMessage,  setShowMessage]  = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showLedger,   setShowLedger]   = useState(false);
+
+  const progressPct = Math.min(100, Math.round((MEMBER.membership.daysRemaining / 365) * 100));
+
+  return (
+    <div className="space-y-4">
+      {/* Breadcrumb */}
+      <button
+        type="button"
+        onClick={() => navigate("/admin/members")}
+        className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800"
+      >
+        <ChevronLeft size={14} />
+        Back to Members
+        <span className="text-gray-300">/</span>
+        <span className="text-gray-800 font-medium">TechVision Rwanda Ltd.</span>
+      </button>
+
+      {/* Profile header card */}
+      <div className="rounded-md border border-gray-200 bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="h-16 w-16 flex-shrink-0 rounded-full bg-gray-200" />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900">{MEMBER.name}</h1>
+                <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  <CheckCircle2 size={11} /> Active
+                </span>
+                <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white">
+                  {MEMBER.tier}
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-1">
+                  <Shield size={12} className="text-gray-400" />
+                  {MEMBER.category}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Building2 size={12} className="text-gray-400" />
+                  {MEMBER.cluster}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <MapPin size={12} className="text-gray-400" />
+                  {MEMBER.location}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowMessage(true)}
+            className="inline-flex items-center gap-2 self-start rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black hover:bg-yellow-400"
+          >
+            <MessageSquare size={14} />
+            Message
+          </button>
+        </div>
+      </div>
+
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* LEFT SIDEBAR */}
+        <div className="space-y-4">
+
+          {/* Contact Information */}
+          <Card title="Contact Information">
+            <p className="font-semibold text-sm text-gray-900">{MEMBER.contact.name}</p>
+            <p className="text-xs text-gray-500 mb-3">{MEMBER.contact.title}</p>
+            <div className="space-y-2 text-xs text-gray-700">
+              <ContactRow icon={<Mail size={13} />}  value={MEMBER.contact.email}   href={`mailto:${MEMBER.contact.email}`} />
+              <ContactRow icon={<Phone size={13} />} value={MEMBER.contact.phone} />
+              <ContactRow icon={<Globe size={13} />} value={MEMBER.contact.website} href={`https://${MEMBER.contact.website}`} />
+              <ContactRow icon={<MapPin size={13} />} value={MEMBER.contact.address} />
+            </div>
+          </Card>
+
+          {/* Registration Details */}
+          <Card title="Registration Details">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className="text-gray-400">TIN Number</p>
+                <p className="font-semibold text-gray-800 mt-0.5">{MEMBER.registration.tin}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">RDB Reg. No.</p>
+                <p className="font-semibold text-gray-800 mt-0.5">{MEMBER.registration.rdb}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-gray-400 mb-1">Business Category</p>
+                <span className="rounded-md bg-black-50 px-2 py-1 text-xs font-medium text-black-700">
+                  {MEMBER.registration.category}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <p className="text-gray-400">Member ID</p>
+                <p className="font-semibold text-black-600 mt-0.5">{MEMBER.registration.memberId}</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Uploaded Documents */}
+          <Card title="Uploaded Documents">
+            <div className="space-y-2.5">
+              {MEMBER.documents.map((doc) => (
+                <div key={doc.name} className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-gray-500">
+                    <FileText size={14} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-gray-800">{doc.name}</p>
+                    <p className="text-[11px] text-gray-400">{doc.size} · {doc.date}</p>
+                  </div>
+                  <button type="button" className="text-gray-400 hover:text-gray-700">
+                    <Download size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* RIGHT MAIN */}
+        <div className="space-y-4 xl:col-span-2">
+
+          {/* Membership Status */}
+          <Card title="Membership Status" subtitle="Current active subscription period details.">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-6 sm:gap-8 text-xs">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valid From</p>
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <Calendar size={12} className="text-gray-400" />
+                    {MEMBER.membership.validFrom}
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Expires On</p>
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                    <Clock size={12} className="text-yellow-500" />
+                    {MEMBER.membership.expiresOn}
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-full rounded-md border border-gray-200 bg-gray-50 p-3 sm:w-[210px]">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-600">Days Remaining</span>
+                  <span className="text-[30px] font-bold leading-none text-gray-900">{MEMBER.membership.daysRemaining}</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-full rounded-full bg-[#0f2a5c]" style={{ width: `${progressPct}%` }} />
+                </div>
+                <p className="mt-1.5 text-[10px] text-gray-500">{MEMBER.membership.renewalNote}</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Payment History */}
+          <Card
+            title="Payment History"
+            action={
+              <button
+                type="button"
+                onClick={() => setShowLedger(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-black-600 hover:underline"
+              >
+                View full ledger <ChevronRight size={13} />
+              </button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {["INVOICE ID", "DATE", "DESCRIPTION", "AMOUNT", "STATUS", "RECEIPT"].map((h) => (
+                      <th key={h} className="py-2 pr-3 text-left text-[10px] font-semibold text-black-500 tracking-wide first:pl-0">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {MEMBER.payments.map((p) => (
+                    <tr key={p.invoiceId} className="text-gray-700">
+                      <td className="py-2.5 pr-3 font-semibold text-gray-900">{p.invoiceId}</td>
+                      <td className="py-2.5 pr-3 whitespace-nowrap">{p.date}</td>
+                      <td className="py-2.5 pr-3">{p.description}</td>
+                      <td className="py-2.5 pr-3 whitespace-nowrap">
+                        <span className="text-[11px] text-gray-400">RWF</span>
+                        <br />
+                        <span className="font-semibold">{p.amount}</span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5">
+                        <button type="button" className="text-gray-400 hover:text-gray-700">
+                          <Download size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card title="Recent Activity & Interactions">
+            <div className="space-y-3">
+              {MEMBER.activity.map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${activityColorMap[item.type]}`}>
+                    {activityIconMap[item.type]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <p className="text-xs font-semibold text-gray-900">{item.label}</p>
+                      <p className="text-[11px] text-gray-400 whitespace-nowrap">{item.time}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showMessage  ? <MessageModal  onClose={() => setShowMessage(false)}  onSchedule={() => { setShowMessage(false); setShowSchedule(true); }} /> : null}
+      {showSchedule ? <ScheduleModal onClose={() => setShowSchedule(false)} /> : null}
+      {showLedger   ? <LedgerModal   onClose={() => setShowLedger(false)}   /> : null}
+    </div>
+  );
+}
+
+/* ============================================================
+   SHARED HELPERS
+============================================================ */
+function Card({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          {subtitle ? <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p> : null}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ContactRow({ icon, value, href }: { icon: React.ReactNode; value: string; href?: string }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-0.5 flex-shrink-0 text-gray-400">{icon}</span>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className="break-all text-black-600 hover:underline">{value}</a>
+      ) : (
+        <span className="text-gray-700">{value}</span>
+      )}
+    </div>
+  );
+}
+
+function ModalShell({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[620px] rounded-md bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ============================================================
+   MESSAGE MODAL
+============================================================ */
+function MessageModal({ onClose, onSchedule }: { onClose: () => void; onSchedule: () => void }) {
+  const toolbarBtns = [
+    { icon: <Bold size={13} />, label: "bold" },
+    { icon: <Italic size={13} />, label: "italic" },
+    { icon: <AlignLeft size={13} />, label: "left" },
+    { icon: <AlignCenter size={13} />, label: "center" },
+    { icon: <AlignRight size={13} />, label: "right" },
+    { icon: <List size={13} />, label: "list" },
+    { icon: <Image size={13} />, label: "image" },
+    { icon: <Smile size={13} />, label: "emoji" },
+  ];
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+        <h3 className="text-base font-bold text-gray-900">Message Content</h3>
+        <button type="button" onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100">
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="space-y-3 px-5 py-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700">Subject Line</label>
+          <input
+            placeholder="e.g., Important Update from Rwanda ICT Chamber"
+            className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700">Message Body</label>
+          <div className="mt-1.5 overflow-hidden rounded-md border border-gray-300 focus-within:border-yellow-500">
+            <div className="flex flex-wrap gap-0.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
+              {toolbarBtns.map((btn) => (
+                <button key={btn.label} type="button" className="rounded p-1 text-gray-500 hover:bg-gray-200">
+                  {btn.icon}
+                </button>
+              ))}
+            </div>
+            <textarea
+              rows={5}
+              placeholder="Write your email content here..."
+              className="w-full px-3 py-2 text-sm outline-none resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <button type="button" className="inline-flex items-center gap-1 hover:text-gray-700">
+            <Paperclip size={12} /> Attach Files
+          </button>
+          <span className="text-gray-300">|</span>
+          <span>Max 5MB total</span>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+        <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Cancel
+        </button>
+        <button type="button" onClick={onSchedule} className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <Bell size={14} /> Schedule
+        </button>
+        <button type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black hover:bg-yellow-400">
+          <Send size={14} /> Send Now
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ============================================================
+   SCHEDULE MODAL
+============================================================ */
+const DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+const CALENDAR = [
+  [null,null,null,1,2,3,4],
+  [5,6,7,8,9,10,11],
+  [12,13,14,15,16,17,18],
+  [19,20,21,22,23,24,25],
+  [26,27,28,29,30,null,null],
+];
+
+function ScheduleModal({ onClose }: { onClose: () => void }) {
+  const [selected, setSelected] = useState(15);
+  const [rangeMode, setRangeMode] = useState(false);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-3 sm:p-5"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[700px] overflow-hidden rounded-md bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between bg-gray-900 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-yellow-500 text-black">
+              <Bell size={15} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Schedule Message</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Set date, time, and recurrence for your broadcast.</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5">
+          {/* Left: Date picker */}
+          <div className="border-r border-gray-100 p-4 sm:col-span-3">
+            {/* Tab toggle */}
+            <div className="mb-3 flex gap-2">
+              {["Single Date", "Date Range"].map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setRangeMode(label === "Date Range")}
+                  className={`rounded-md border px-3 py-1 text-xs font-medium ${
+                    (label === "Date Range") === rangeMode
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Month header */}
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900">November 2023</p>
+              <div className="flex gap-1">
+                <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100"><ChLeft size={14} /></button>
+                <button type="button" className="rounded p-1 text-gray-400 hover:bg-gray-100"><ChevronRight size={14} /></button>
+              </div>
+            </div>
+
+            {/* Day labels */}
+            <div className="mb-1 grid grid-cols-7 text-center">
+              {DAYS.map((d) => (
+                <div key={d} className="py-1 text-[11px] font-medium text-gray-400">{d}</div>
+              ))}
+            </div>
+
+            {/* Calendar grid */}
+            {CALENDAR.map((week, wi) => (
+              <div key={wi} className="grid grid-cols-7 text-center">
+                {week.map((day, di) => (
+                  <button
+                    key={di}
+                    type="button"
+                    disabled={!day}
+                    onClick={() => day && setSelected(day)}
+                    className={`mx-auto my-0.5 flex h-8 w-8 items-center justify-center rounded-full text-xs transition-colors ${
+                      !day ? "invisible" :
+                      day === selected ? "bg-yellow-500 font-semibold text-black" :
+                      day === 12 ? "font-semibold text-yellow-600" :
+                      "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            ))}
+
+            {/* Time / Timezone / Repeat */}
+            <div className="mt-3 space-y-2">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-700">
+                    <Clock size={12} /> Time
+                  </label>
+                  <input className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none" placeholder="09:00 AM" />
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-700">
+                    <Globe size={12} /> Timezone
+                  </label>
+                  <input className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none" placeholder="CAT (UTC+2)" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 flex items-center gap-1 text-xs font-medium text-gray-700">
+                  <RotateCcw size={12} /> Repeat Options
+                </label>
+                <input className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs outline-none" placeholder="No repeat" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Target Audience */}
+          <div className="bg-gray-50 p-4 sm:col-span-2">
+            <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <Users size={13} className="text-yellow-500" /> Target Audience
+            </p>
+
+            <div className="rounded-md border border-gray-200 bg-white p-3 text-center">
+              <p className="text-xs text-gray-500">Total Recipients</p>
+              <p className="mt-0.5 text-3xl font-bold text-gray-900">1,240</p>
+              <div className="mt-2 flex justify-center">
+                <div className="rounded-full bg-yellow-100 p-2 text-yellow-600">
+                  <Users size={16} />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-1.5">
+              <p className="flex items-center gap-1 text-xs font-medium text-gray-600">
+                <Filter size={11} /> Applied Filters
+              </p>
+              {["Status: Active", "Category: Tech", "Region: Kigali"].map((f) => (
+                <span key={f} className="mr-1.5 inline-block rounded-full bg-gray-200 px-2 py-0.5 text-[11px] text-gray-700">
+                  {f}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-md border border-black-100 bg-black-50 p-3 text-xs text-black-700">
+              Message will be sent on{" "}
+              <span className="font-semibold">Nov {selected}, 2023</span> at{" "}
+              <span className="font-semibold">09:00 AM (CAT)</span> to{" "}
+              <span className="font-semibold">1,240 members</span>.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button type="button" onClick={onClose} className="rounded-md bg-yellow-500 px-5 py-2 text-sm font-medium text-black hover:bg-yellow-400">
+            Schedule Message
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ============================================================
+   PAYMENT LEDGER MODAL
+============================================================ */
+function LedgerModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[640px] rounded-md bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <h3 className="text-base font-bold text-gray-900">Payment History</h3>
+          <button type="button" onClick={onClose} className="rounded-md p-1 text-gray-500 hover:bg-gray-100">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-xs">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {["INVOICE ID", "DATE", "DESCRIPTION", "AMOUNT", "STATUS", "RECEIPT"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-black-500 tracking-wide">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {MEMBER.allPayments.map((p, i) => (
+                <tr key={i} className="text-gray-700 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-semibold text-gray-900">{p.invoiceId}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{p.date}</td>
+                  <td className="px-4 py-3">{p.description}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-[11px] text-gray-400">RWF</span>
+                    <br />
+                    <span className="font-semibold">{p.amount}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button type="button" className="text-gray-400 hover:text-gray-700">
+                      <Download size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-gray-200 px-5 py-4">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            close
+          </button>
+          <button type="button" className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <Download size={14} /> Export All
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
