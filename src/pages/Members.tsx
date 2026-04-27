@@ -1,4 +1,5 @@
-import { Search, Filter, ChevronDown } from "lucide-react";
+import { Search, Filter, ChevronDown, MoreVertical, Eye, CheckCircle2, XCircle, Clock3 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type Member = {
   id: string;
@@ -9,19 +10,21 @@ type Member = {
   tier: "Platinum" | "Gold" | "Silver" | "Bronze";
   status: "Active" | "Inactive" | "Pending";
   joinDate: string;
+  lastPaymentAmount: string;
+  lastPaymentDate: string;
 };
 
 const members: Member[] = [
-  { id: "ICT2024PN924", name: "Hviewtech group",            cluster: "IT Hardware and Solutions",          website: "www.hviewtech.com",          category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "15 Jan 2024" },
-  { id: "ICT2024NA055", name: "1000 hills traveler",        cluster: "Tourism & Hospitality",              website: "www.bookly.africa",           category: "Associated",                tier: "Gold",     status: "Active",   joinDate: "20 Mar 2024" },
-  { id: "ICT2024PS233", name: "1000hills animation studio", cluster: "Media Tech",                         website: "thousandhillsanima.wix",      category: "Commercial Company",        tier: "Silver",   status: "Inactive", joinDate: "10 May 2024" },
-  { id: "ICT2024CM756", name: "4netafrica /isp",            cluster: "Infrastructure and Connectivity Services", website: "www.4netafrica.com",    category: "Program Partner",           tier: "Bronze",   status: "Active",   joinDate: "01 Sep 2024" },
-  { id: "ICT2024TB775", name: "Ab global consultants",      cluster: "IT Hardware and Solutions",          website: "www.linkedin.com/comp",       category: "Individual Professional",   tier: "Bronze",   status: "Pending",  joinDate: "25 Oct 2024" },
-  { id: "ICT2024PB644", name: "AC Group",                   cluster: "IT Hardware and Solutions",          website: "www.acgroup.rw",              category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "12 Feb 2024" },
-  { id: "ICT2024MM464", name: "Academic bridge",            cluster: "EdTech",                             website: "academicbridge.xyz",          category: "Program",                   tier: "Silver",   status: "Active",   joinDate: "05 Jul 2024" },
-  { id: "ICT2024MO848", name: "Adfinance",                  cluster: "FinTech",                            website: "www.adfinance.co",            category: "Multiple Business",         tier: "Gold",     status: "Inactive", joinDate: "18 Aug 2024" },
-  { id: "ICT2024YK637", name: "Aegis consult",              cluster: "IT Hardware and Solutions",          website: "www.aegistrust.org",          category: "Commercial Company",        tier: "Silver",   status: "Active",   joinDate: "22 Nov 2024" },
-  { id: "ICT2024KB405", name: "Africa Blockchain Institute",cluster: "eCommerce and eServices",            website: "africablockchain.institut",   category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "14 Apr 2024" },
+  { id: "ICT2024PN924", name: "Hviewtech group",            cluster: "IT Hardware and Solutions",          website: "www.hviewtech.com",          category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "15 Jan 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "05 Jan 2024" },
+  { id: "ICT2024NA055", name: "1000 hills traveler",        cluster: "Tourism & Hospitality",              website: "www.bookly.africa",           category: "Associated",                tier: "Gold",     status: "Active",   joinDate: "20 Mar 2024", lastPaymentAmount: "600,000 RWF",   lastPaymentDate: "10 Feb 2024" },
+  { id: "ICT2024PS233", name: "1000hills animation studio", cluster: "Media Tech",                         website: "thousandhillsanima.wix",      category: "Commercial Company",        tier: "Silver",   status: "Inactive", joinDate: "10 May 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "15 May 2022" },
+  { id: "ICT2024CM756", name: "4netafrica /isp",            cluster: "Infrastructure and Connectivity Services", website: "www.4netafrica.com",    category: "Program Partner",           tier: "Bronze",   status: "Active",   joinDate: "01 Sep 2024", lastPaymentAmount: "100,000 RWF",   lastPaymentDate: "01 Sep 2023" },
+  { id: "ICT2024TB775", name: "Ab global consultants",      cluster: "IT Hardware and Solutions",          website: "www.linkedin.com/comp",       category: "Individual Professional",   tier: "Bronze",   status: "Pending",  joinDate: "25 Oct 2024", lastPaymentAmount: "100,000 RWF",   lastPaymentDate: "-" },
+  { id: "ICT2024PB644", name: "AC Group",                   cluster: "IT Hardware and Solutions",          website: "www.acgroup.rw",              category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "12 Feb 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "20 Jan 2024" },
+  { id: "ICT2024MM464", name: "Academic bridge",            cluster: "EdTech",                             website: "academicbridge.xyz",          category: "Program",                   tier: "Silver",   status: "Active",   joinDate: "05 Jul 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "05 Jul 2023" },
+  { id: "ICT2024MO848", name: "Adfinance",                  cluster: "FinTech",                            website: "www.adfinance.co",            category: "Multiple Business",         tier: "Gold",     status: "Inactive", joinDate: "18 Aug 2024", lastPaymentAmount: "600,000 RWF",   lastPaymentDate: "20 Aug 2021" },
+  { id: "ICT2024YK637", name: "Aegis consult",              cluster: "IT Hardware and Solutions",          website: "www.aegistrust.org",          category: "Commercial Company",        tier: "Silver",   status: "Active",   joinDate: "22 Nov 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "22 Nov 2023" },
+  { id: "ICT2024KB405", name: "Africa Blockchain Institute",cluster: "eCommerce and eServices",            website: "africablockchain.institut",   category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "14 Apr 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "14 Apr 2023" },
 ];
 
 const tierStyles = {
@@ -47,9 +50,18 @@ function TierBadge({ tier }: { tier: Member["tier"] }) {
 
 function StatusBadge({ status }: { status: Member["status"] }) {
   const s = statusStyles[status];
+  const icon =
+    status === "Active" ? (
+      <CheckCircle2 size={12} />
+    ) : status === "Inactive" ? (
+      <XCircle size={12} />
+    ) : (
+      <Clock3 size={12} />
+    );
+
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${s.badge}`}>
-      <span className={`text-base leading-none ${s.dot}`}>⊙</span>
+      <span className={s.dot}>{icon}</span>
       {status}
     </span>
   );
@@ -67,6 +79,30 @@ function SelectFilter({ label }: { label: string }) {
 }
 
 export default function Members() {
+  const [openActionFor, setOpenActionFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest("[data-member-action-menu]")) {
+        setOpenActionFor(null);
+      }
+    };
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, []);
+
+  const renderStatusAction = (status: Member["status"]) => {
+    if (status === "Inactive") {
+      return ["Activate"];
+    }
+    if (status === "Active") {
+      return ["Deactivate"];
+    }
+    return ["Activate", "Deactivate"];
+  };
+
   return (
     <div className="space-y-4">
 
@@ -126,6 +162,7 @@ export default function Members() {
                 <div><p className="text-gray-400">Tier</p><div className="mt-0.5"><TierBadge tier={m.tier} /></div></div>
                 <div><p className="text-gray-400">Category</p><p className="text-gray-700">{m.category}</p></div>
                 <div><p className="text-gray-400">Join Date</p><p className="text-gray-700">{m.joinDate}</p></div>
+                <div><p className="text-gray-400">Last Payment</p><p className="text-gray-700 font-medium">{m.lastPaymentAmount}</p><p className="text-[11px] text-gray-400">{m.lastPaymentDate}</p></div>
               </div>
               <a className="mt-2 inline-block text-xs text-blue-600 underline break-all" href={`https://${m.website}`} target="_blank" rel="noreferrer">
                 {m.website}
@@ -148,6 +185,8 @@ export default function Members() {
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">TIER</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">STATUS</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">JOIN DATE</th>
+                <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">LAST PAYMENT</th>
+                <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -166,6 +205,46 @@ export default function Members() {
                   <td className="px-3 py-3"><TierBadge tier={m.tier} /></td>
                   <td className="px-3 py-3"><StatusBadge status={m.status} /></td>
                   <td className="px-3 py-3 text-gray-500">{m.joinDate}</td>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold text-gray-800">{m.lastPaymentAmount}</p>
+                    <p className="text-[11px] text-gray-400">{m.lastPaymentDate}</p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="relative inline-flex" data-member-action-menu>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setOpenActionFor((prev) => (prev === m.id ? null : m.id));
+                        }}
+                        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                        aria-label={`Open actions for ${m.name}`}
+                      >
+                        <MoreVertical size={15} />
+                      </button>
+
+                      {openActionFor === m.id ? (
+                        <div className="absolute right-0 top-8 z-20 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            <Eye size={12} />
+                            View details
+                          </button>
+                          {renderStatusAction(m.status).map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

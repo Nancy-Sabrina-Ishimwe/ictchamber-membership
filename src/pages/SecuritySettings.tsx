@@ -47,7 +47,7 @@ export default function SecuritySettings() {
       {/* HEADER */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-[34px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
+          <h2 className="text-[24px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
             Security Settings
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-gray-500">

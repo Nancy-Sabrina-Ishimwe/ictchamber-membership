@@ -1,5 +1,7 @@
-import { Search, Plus, Pencil, Trash2, Filter, ShieldCheck, Users, SlidersHorizontal, KeyRound } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Filter, ShieldCheck, Users, SlidersHorizontal, KeyRound, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { createPortal } from "react-dom";
 
 type Role = {
   name: string;
@@ -54,6 +56,10 @@ const roles: Role[] = [
 ];
 
 export default function Settings() {
+  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
   return (
     <div className="space-y-5">
       {/* TABS */}
@@ -84,7 +90,7 @@ export default function Settings() {
       {/* HEADER */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-[34px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
+          <h2 className="text-[24px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
             User Roles & Access Management
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-gray-500">
@@ -93,7 +99,10 @@ export default function Settings() {
           </p>
         </div>
 
-        <button className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400">
+        <button
+          onClick={() => setShowCreateRoleModal(true)}
+          className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400"
+        >
           <Plus size={15} />
           Create New Role
         </button>
@@ -164,7 +173,17 @@ export default function Settings() {
 
             {/* ACTIONS */}
             <div className="flex lg:justify-end gap-3 text-gray-400">
-              <Pencil size={16} className="cursor-pointer hover:text-black" />
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole(role);
+                  setShowEditRoleModal(true);
+                }}
+                className="text-gray-400 transition-colors hover:text-black"
+                aria-label={`Edit ${role.name}`}
+              >
+                <Pencil size={16} />
+              </button>
               <Trash2 size={16} className="cursor-pointer hover:text-red-500" />
             </div>
           </div>
@@ -184,6 +203,20 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {showCreateRoleModal ? (
+        <CreateRoleModal onClose={() => setShowCreateRoleModal(false)} />
+      ) : null}
+
+      {showEditRoleModal && selectedRole ? (
+        <EditRoleModal
+          role={selectedRole}
+          onClose={() => {
+            setShowEditRoleModal(false);
+            setSelectedRole(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -216,5 +249,249 @@ function Tab({
       {icon ? <span className="text-black">{icon}</span> : null}
       {label}
     </NavLink>
+  );
+}
+
+function CreateRoleModal({ onClose }: { onClose: () => void }) {
+  const permissions = [
+    "View Applications",
+    "Manage Payments",
+    "Edit Settings",
+    "Manage Users",
+    "Approve Members",
+    "Access Reports",
+    "Send Messages",
+  ];
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[520px] rounded-md border border-gray-200 bg-white shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3.5 sm:px-5 sm:py-4">
+          <h3 className="text-xl font-bold tracking-[-0.02em] text-gray-900">Create New Role</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+            aria-label="Close create role modal"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-4.5">
+          <div>
+            <label className="text-sm font-medium text-gray-800">
+              Role Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              placeholder="e.g., Senior Membership Officer"
+              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              A unique name to identify this role within the system.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-800">Description</label>
+            <textarea
+              rows={2}
+              placeholder="Briefly describe the responsibilities and access level of this role..."
+              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-800">Permissions Access</label>
+            <div className="mt-1.5 grid grid-cols-1 gap-1 rounded-md border border-gray-200 p-2 sm:grid-cols-2">
+              {permissions.map((permission) => (
+                <label key={permission} className="flex items-center gap-1.5 text-sm text-gray-700">
+                  <input type="checkbox" className="h-3.5 w-3.5 rounded border-gray-300 accent-yellow-500" />
+                  {permission}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-800">Users Assignment</label>
+              <span className="text-xs text-gray-500">Optional</span>
+            </div>
+            <button
+              type="button"
+              className="mt-1.5 flex w-full items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-left text-sm text-gray-500"
+            >
+              <span>Search and add users...</span>
+              <span className="text-gray-400">⌄</span>
+            </button>
+          </div>
+
+          <div className="rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-gray-700">
+            <span className="font-semibold">Note:</span> Changes apply immediately to assigned users. They may need to refresh
+            their session to see updated access.
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-2 sm:px-5 sm:py-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md bg-yellow-500 px-5 py-1.5 text-sm font-medium text-black hover:bg-yellow-400"
+          >
+            Save Role
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function EditRoleModal({
+  role,
+  onClose,
+}: {
+  role: Role;
+  onClose: () => void;
+}) {
+  const permissions = [
+    "View Applications",
+    "Manage Payments",
+    "Edit Settings",
+    "Manage Users",
+    "Approve Members",
+    "Access Reports",
+    "Send Messages",
+  ];
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[520px] rounded-md border border-gray-200 bg-white shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3.5 sm:px-5 sm:py-4">
+          <h3 className="text-xl font-bold tracking-[-0.02em] text-gray-900">Edit Role</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+            aria-label="Close edit role modal"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-4.5">
+          <div>
+            <label className="text-sm font-medium text-gray-800">
+              Role Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              defaultValue={role.name}
+              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              A unique name to identify this role within the system.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-800">Description</label>
+            <textarea
+              rows={2}
+              defaultValue={role.description}
+              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-800">Permissions Access</label>
+            <div className="mt-1.5 grid grid-cols-1 gap-1 rounded-md border border-gray-200 p-2 sm:grid-cols-2">
+              {permissions.map((permission) => (
+                <label key={permission} className="flex items-center gap-1.5 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    defaultChecked={role.permissions.includes(permission)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 accent-yellow-500"
+                  />
+                  {permission}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-800">Users Assignment</label>
+              <span className="text-xs text-gray-500">Optional</span>
+            </div>
+            <button
+              type="button"
+              className="mt-1.5 flex w-full items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-left text-sm text-gray-500"
+            >
+              <span>Search and add users...</span>
+              <span className="text-gray-400">⌄</span>
+            </button>
+          </div>
+
+          <div className="rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-gray-700">
+            <span className="font-semibold">Note:</span> Changes apply immediately to assigned users. They may need to refresh
+            their session to see updated access.
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-2 sm:px-5 sm:py-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md bg-yellow-500 px-5 py-1.5 text-sm font-medium text-black hover:bg-yellow-400"
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
