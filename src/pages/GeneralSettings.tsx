@@ -33,7 +33,7 @@ export default function GeneralSettings() {
       {/* TABS */}
       <div className="flex gap-2 bg-white p-2 rounded-xl border w-fit">
         <Tab label="User roles & access management" onClick={() => navigate("/settings")} />
-        <Tab label="User management" onClick={() => navigate("/renewals")} />
+        <Tab label="User management" onClick={() => navigate("/settings/users")} />
         <Tab label="General setting" active />
         <Tab label="Security settings" onClick={() => navigate("/settings/security")} />
       </div>

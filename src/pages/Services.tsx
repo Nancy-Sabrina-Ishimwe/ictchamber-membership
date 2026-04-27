@@ -116,7 +116,7 @@ export default function Services() {
           </button>
 
           <button
-            onClick={() => navigate("/services/delivered")}
+            onClick={() => navigate('/admin/services/delivered')}
             className="bg-yellow-500 px-4 py-2 rounded text-sm font-medium"
           >
             Delivered Services

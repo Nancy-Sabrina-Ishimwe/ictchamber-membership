@@ -43,7 +43,7 @@ export default function Partners() {
 
           {/* Partner List */}
           <button
-            onClick={() => navigate("/partners/directory")}
+            onClick={() => navigate('/admin/partners/directory')}
             className="flex items-center gap-2 px-4 py-2 border rounded-md bg-white text-sm hover:bg-gray-50"
           >
             <List size={16} />

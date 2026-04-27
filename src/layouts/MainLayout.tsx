@@ -11,10 +11,9 @@ import {
   LifeBuoy,
   LogOut,
   Bell,
-} from "lucide-react";
-
-import { Link, useLocation } from "react-router-dom";
-import logoict from "../assets/logoict.png";
+} from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import logoict from '../assets/logoict.png';
 
 type Props = {
   children: React.ReactNode;
@@ -23,112 +22,98 @@ type Props = {
 export default function MainLayout({ children }: Props) {
   const location = useLocation();
 
-  // 🔥 Dynamic title
   const getTitle = () => {
     switch (location.pathname) {
-      case "/":
-        return "Dashboard Overview";
-      case "/members":
-        return "Member Directory";
-      case "/payments":
-        return "Payments Ledger";
-      case "/messaging":
-        return "Bulk Messaging";
-      case "/partners":
-        return "Partners";
-      case "/services":
-        return "Services";
-      case "/events":
-        return "Events";
-      case "/reports":
-        return "Reports";
-      case "/settings":
-        return "Settings";
+      case '/admin':
+        return 'Dashboard Overview';
+      case '/admin/members':
+        return 'Member Directory';
+      case '/admin/payments':
+        return 'Payments Ledger';
+      case '/admin/messaging':
+        return 'Bulk Messaging';
+      case '/admin/partners':
+      case '/admin/partners/directory':
+        return 'Partners';
+      case '/admin/renewals':
+        return 'Renewals';
+      case '/admin/services':
+      case '/admin/services/delivered':
+        return 'Services';
+      case '/admin/events':
+        return 'Events';
+      case '/admin/reports':
+      case '/admin/reports/service-usage':
+        return 'Reports';
+      case '/admin/settings':
+        return 'Settings';
+      case '/admin/support':
+        return 'Support';
+      case '/admin/logout':
+        return 'Log Out';
       default:
-        return "Dashboard";
+        return 'Dashboard';
     }
   };
 
   return (
-    <div
-      className={`flex h-screen ${
-        location.pathname === "/" ? "bg-[#F5F7FA]" : "bg-white"
-      }`}
-    >
-      
-      {/* Sidebar */}
-      <div className="w-64 bg-black text-white flex flex-col h-screen">
-        
-        {/* Top */}
-        <div className="flex-1 flex flex-col min-h-0">
-          
-          {/* Logo */}
-          <div className="p-6 border-b border-gray-800 flex items-center gap-2">
-            <img src={logoict} alt="ICT Chamber" className="w-6 h-6" />
+    <div className={`flex h-screen ${location.pathname === '/admin' ? 'bg-[#F5F7FA]' : 'bg-white'}`}>
+      <div className="flex h-screen w-64 flex-col bg-black text-white">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-center gap-2 border-b border-gray-800 p-6">
+            <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
             <span className="text-sm font-semibold">ICT CHAMBER</span>
           </div>
 
-          {/* Menu */}
-          <nav className="flex-1 px-4 py-6 space-y-2 text-sm overflow-y-auto">
-            <p className="text-gray-500 text-xs mb-3">MAIN MENU</p>
+          <nav className="flex-1 overflow-y-auto px-4 py-6 text-sm">
+            <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
 
-            <MenuItem to="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
-            <MenuItem to="/members" icon={<Users size={18} />} label="Members" />
-            <MenuItem to="/partners" icon={<Handshake size={18} />} label="Partners" />
-            <MenuItem to="/payments" icon={<CreditCard size={18} />} label="Payments" />
-            <MenuItem to="/services" icon={<Briefcase size={18} />} label="Services" />
-            <MenuItem to="/events" icon={<Calendar size={18} />} label="Events" />
-            <MenuItem to="/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
-            <MenuItem to="/reports" icon={<BarChart3 size={18} />} label="Reports" />
-            <MenuItem to="/settings" icon={<Settings size={18} />} label="Settings" />
+            <div className="space-y-2">
+              <MenuItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
+              <MenuItem to="/admin/members" icon={<Users size={18} />} label="Members" />
+              <MenuItem to="/admin/partners" icon={<Handshake size={18} />} label="Partners" />
+              <MenuItem to="/admin/payments" icon={<CreditCard size={18} />} label="Payments" />
+              <MenuItem to="/admin/services" icon={<Briefcase size={18} />} label="Services" />
+              <MenuItem to="/admin/events" icon={<Calendar size={18} />} label="Events" />
+              <MenuItem to="/admin/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
+              <MenuItem to="/admin/reports" icon={<BarChart3 size={18} />} label="Reports" />
+              <MenuItem to="/admin/settings" icon={<Settings size={18} />} label="Settings" />
+            </div>
           </nav>
         </div>
 
-        {/* Bottom */}
-        <div className="p-4 border-t border-gray-800 text-sm space-y-2">
-          <MenuItem to="/support" icon={<LifeBuoy size={18} />} label="Support" />
-          <MenuItem to="/logout" icon={<LogOut size={18} />} label="Log Out" />
+        <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
+          <MenuItem to="/admin/support" icon={<LifeBuoy size={18} />} label="Support" />
+          <MenuItem to="/admin/logout" icon={<LogOut size={18} />} label="Log Out" />
         </div>
       </div>
 
-      {/* Right side */}
-      <div className="flex-1 flex flex-col">
-        
-        {/* Topbar */}
-        <div className="h-16 bg-[#0F1E3A] text-white flex items-center justify-between px-6">
-          
-          {/* Dynamic Title */}
-          <h1 className="font-semibold text-lg">{getTitle()}</h1>
+      <div className="flex flex-1 flex-col">
+        <div className="flex h-16 items-center justify-between bg-[#0F1E3A] px-6 text-white">
+          <h1 className="text-lg font-semibold">{getTitle()}</h1>
 
           <div className="flex items-center gap-6">
-            
-            {/* Notification */}
             <div className="relative cursor-pointer">
               <Bell size={20} />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
             </div>
 
-            {/* User */}
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-medium">Admin User</p>
                 <p className="text-xs text-gray-300">Super Admin</p>
               </div>
-              <div className="w-8 h-8 bg-gray-400 rounded-full" />
+              <div className="h-8 w-8 rounded-full bg-gray-400" />
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto h-full">
-          {children}
-        </div>
+        <div className="h-full overflow-y-auto p-6">{children}</div>
       </div>
     </div>
   );
 }
 
-/* MenuItem */
 function MenuItem({
   icon,
   label,
@@ -139,18 +124,15 @@ function MenuItem({
   to: string;
 }) {
   const location = useLocation();
-
-  const isActive =
-    location.pathname === to ||
-    location.pathname.startsWith(to + "/");
+  const isActive = to === '/admin'
+    ? location.pathname === to
+    : location.pathname === to || location.pathname.startsWith(`${to}/`);
 
   return (
     <Link
       to={to}
-      className={`flex items-center gap-3 px-4 py-2 rounded transition-colors ${
-        isActive
-          ? "bg-yellow-500 text-black font-medium"
-          : "hover:bg-gray-800 text-white"
+      className={`flex items-center gap-3 rounded px-4 py-2 transition-colors ${
+        isActive ? 'bg-yellow-500 font-medium text-black' : 'text-white hover:bg-gray-800'
       }`}
     >
       {icon}

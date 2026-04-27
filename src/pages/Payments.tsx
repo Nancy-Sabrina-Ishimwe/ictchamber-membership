@@ -109,7 +109,7 @@ export default function Payments() {
         </div>
 
         <button
-          onClick={() => navigate("/renewals")}
+          onClick={() => navigate('/admin/renewals')}
           className="bg-yellow-500 px-5 py-2 rounded-md text-sm font-medium"
         >
           View Renewal pending

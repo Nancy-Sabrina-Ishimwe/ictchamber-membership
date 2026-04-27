@@ -47,7 +47,7 @@ export default function SecuritySettings() {
       {/* TABS */}
       <div className="flex gap-2 bg-white border rounded-xl p-2 w-fit">
         <Tab label="User roles & access management" onClick={() => navigate("/settings")} />
-        <Tab label="User management" onClick={() => navigate("/settings/user")} />
+        <Tab label="User management" onClick={() => navigate("/settings/users")} />
         <Tab label="General setting" onClick={() => navigate("/settings/general")} />
         <Tab label="Security settings" active />
       </div>
