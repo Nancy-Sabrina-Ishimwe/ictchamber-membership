@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { AdminRoute, MemberRoute, PublicRoute } from './components/auth/ProtectedRoute';
 import { NewRequestModal } from './components/membership/portal/NewRequestModal';
 import MainLayout from './layouts/MainLayout';
 import ServiceUsage from './services/ServiceUsage';
@@ -28,6 +29,7 @@ import { DashboardPage } from './pages/membership/portal/DashboardPage';
 import { PaymentsPage } from './pages/membership/portal/PaymentsPage';
 import { ProfilePage } from './pages/membership/portal/ProfilePage';
 import { RequestsPage } from './pages/membership/portal/RequestsPage';
+import { ROUTES } from './constants/app';
 
 const GlobalModals: React.FC = () => {
   const { showNewRequestModal } = usePortalStore();
@@ -53,212 +55,277 @@ function App() {
     <>
       <GlobalModals />
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
+        {/* ── Public ── */}
+        <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
 
         <Route
-          path="/admin"
+          path={ROUTES.LOGIN}
           element={
-            <AdminShell>
-              <Dashboard />
-            </AdminShell>
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
+
+        {/* ── Admin (requires admin role) ── */}
+        <Route
+          path={ROUTES.ADMIN}
+          element={
+            <AdminRoute>
+              <AdminShell>
+                <Dashboard />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/members"
+          path={ROUTES.ADMIN_MEMBERS}
           element={
-            <AdminShell>
-              <Members />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Members />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
           path="/admin/members/:id"
           element={
-            <AdminShell>
-              <MemberProfile />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <MemberProfile />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/payments"
+          path={ROUTES.ADMIN_PAYMENTS}
           element={
-            <AdminShell>
-              <Payments />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Payments />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/messaging"
+          path={ROUTES.ADMIN_MESSAGING}
           element={
-            <AdminShell>
-              <Messaging />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Messaging />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/partners"
+          path={ROUTES.ADMIN_PARTNERS}
           element={
-            <AdminShell>
-              <Partners />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Partners />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/partners/directory"
+          path={ROUTES.ADMIN_PARTNERS_DIRECTORY}
           element={
-            <AdminShell>
-              <PartnerDirectory />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <PartnerDirectory />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/renewals"
+          path={ROUTES.ADMIN_RENEWALS}
           element={
-            <AdminShell>
-              <Renewals />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Renewals />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/services"
+          path={ROUTES.ADMIN_SERVICES}
           element={
-            <AdminShell>
-              <Services />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Services />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/services/delivered"
+          path={ROUTES.ADMIN_SERVICES_DELIVERED}
           element={
-            <AdminShell>
-              <DeliveredServices />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <DeliveredServices />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/events"
+          path={ROUTES.ADMIN_EVENTS}
           element={
-            <AdminShell>
-              <Events />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Events />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/reports"
+          path={ROUTES.ADMIN_REPORTS}
           element={
-            <AdminShell>
-              <Reports />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Reports />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/reports/service-usage"
+          path={ROUTES.ADMIN_REPORTS_SERVICE_USAGE}
           element={
-            <AdminShell>
-              <ServiceUsage />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <ServiceUsage />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/settings"
+          path={ROUTES.ADMIN_SETTINGS}
           element={
-            <AdminShell>
-              <Settings />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <Settings />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/settings/security"
+          path={ROUTES.ADMIN_SETTINGS_SECURITY}
           element={
-            <AdminShell>
-              <SecuritySettings />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <SecuritySettings />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/settings/general"
+          path={ROUTES.ADMIN_SETTINGS_GENERAL}
           element={
-            <AdminShell>
-              <GeneralSettings />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <GeneralSettings />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/settings/users"
+          path={ROUTES.ADMIN_SETTINGS_USERS}
           element={
-            <AdminShell>
-              <UserManagement />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <UserManagement />
+              </AdminShell>
+            </AdminRoute>
           }
         />
         <Route
-          path="/admin/support"
+          path={ROUTES.ADMIN_SUPPORT}
           element={
-            <AdminShell>
-              <AdminPlaceholder
-                title="Support"
-                description="This route is preserved so the superadmin navigation stays intact while the support screen is still being finalized."
-              />
-            </AdminShell>
+            <AdminRoute>
+              <AdminShell>
+                <AdminPlaceholder
+                  title="Support"
+                  description="This route is preserved so the super-admin navigation stays intact while the support screen is still being finalized."
+                />
+              </AdminShell>
+            </AdminRoute>
           }
         />
-        <Route path="/admin/logout" element={<Navigate to="/admin" replace />} />
 
-        <Route path="/members" element={<Navigate to="/admin/members" replace />} />
-        <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
-        <Route
-          path="/partners/directory"
-          element={<Navigate to="/admin/partners/directory" replace />}
-        />
-        <Route path="/payments-admin" element={<Navigate to="/admin/payments" replace />} />
-        <Route path="/messaging" element={<Navigate to="/admin/messaging" replace />} />
-        <Route path="/renewals" element={<Navigate to="/admin/renewals" replace />} />
-        <Route path="/services" element={<Navigate to="/admin/services" replace />} />
-        <Route
-          path="/services/delivered"
-          element={<Navigate to="/admin/services/delivered" replace />}
-        />
-        <Route path="/events" element={<Navigate to="/admin/events" replace />} />
-        <Route path="/reports" element={<Navigate to="/admin/reports" replace />} />
-        <Route
-          path="/reports/service-usage"
-          element={<Navigate to="/admin/reports/service-usage" replace />}
-        />
-        <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
-        <Route
-          path="/settings/security"
-          element={<Navigate to="/admin/settings/security" replace />}
-        />
-        <Route
-          path="/settings/general"
-          element={<Navigate to="/admin/settings/general" replace />}
-        />
-        <Route
-          path="/settings/users"
-          element={<Navigate to="/admin/settings/users" replace />}
-        />
-        <Route path="/support" element={<Navigate to="/admin/support" replace />} />
-        <Route path="/logout" element={<Navigate to="/admin/logout" replace />} />
+        {/* ── Legacy admin short-paths ── */}
+        <Route path="/members"           element={<Navigate to={ROUTES.ADMIN_MEMBERS}            replace />} />
+        <Route path="/partners"          element={<Navigate to={ROUTES.ADMIN_PARTNERS}           replace />} />
+        <Route path="/partners/directory"element={<Navigate to={ROUTES.ADMIN_PARTNERS_DIRECTORY} replace />} />
+        <Route path="/payments-admin"    element={<Navigate to={ROUTES.ADMIN_PAYMENTS}           replace />} />
+        <Route path="/messaging"         element={<Navigate to={ROUTES.ADMIN_MESSAGING}          replace />} />
+        <Route path="/renewals"          element={<Navigate to={ROUTES.ADMIN_RENEWALS}           replace />} />
+        <Route path="/services"          element={<Navigate to={ROUTES.ADMIN_SERVICES}           replace />} />
+        <Route path="/services/delivered"element={<Navigate to={ROUTES.ADMIN_SERVICES_DELIVERED} replace />} />
+        <Route path="/events"            element={<Navigate to={ROUTES.ADMIN_EVENTS}             replace />} />
+        <Route path="/reports"           element={<Navigate to={ROUTES.ADMIN_REPORTS}            replace />} />
+        <Route path="/reports/service-usage" element={<Navigate to={ROUTES.ADMIN_REPORTS_SERVICE_USAGE} replace />} />
+        <Route path="/settings"          element={<Navigate to={ROUTES.ADMIN_SETTINGS}           replace />} />
+        <Route path="/settings/security" element={<Navigate to={ROUTES.ADMIN_SETTINGS_SECURITY} replace />} />
+        <Route path="/settings/general"  element={<Navigate to={ROUTES.ADMIN_SETTINGS_GENERAL}  replace />} />
+        <Route path="/settings/users"    element={<Navigate to={ROUTES.ADMIN_SETTINGS_USERS}    replace />} />
+        <Route path="/support"           element={<Navigate to={ROUTES.ADMIN_SUPPORT}            replace />} />
 
-        <Route path="/member/register" element={<RegistrationPage />} />
-        <Route path="/member/dashboard" element={<DashboardPage />} />
-        <Route path="/member/requests" element={<RequestsPage />} />
-        <Route path="/member/profile" element={<ProfilePage />} />
-        <Route path="/member/benefits" element={<BenefitsPage />} />
-        <Route path="/member/payments" element={<PaymentsPage />} />
-        <Route path="/member/membership-catalog" element={<MembershipCatalogPage />} />
+        {/* ── Member portal (requires member role) ── */}
+        <Route path={ROUTES.MEMBER_REGISTER}  element={<RegistrationPage />} />
+        <Route
+          path={ROUTES.MEMBER_DASHBOARD}
+          element={
+            <MemberRoute>
+              <DashboardPage />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path={ROUTES.MEMBER_REQUESTS}
+          element={
+            <MemberRoute>
+              <RequestsPage />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path={ROUTES.MEMBER_PROFILE}
+          element={
+            <MemberRoute>
+              <ProfilePage />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path={ROUTES.MEMBER_BENEFITS}
+          element={
+            <MemberRoute>
+              <BenefitsPage />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path={ROUTES.MEMBER_PAYMENTS}
+          element={
+            <MemberRoute>
+              <PaymentsPage />
+            </MemberRoute>
+          }
+        />
+        <Route path={ROUTES.MEMBER_CATALOG} element={<MembershipCatalogPage />} />
 
-        <Route path="/register" element={<Navigate to="/member/register" replace />} />
-        <Route path="/dashboard" element={<Navigate to="/member/dashboard" replace />} />
-        <Route path="/requests" element={<Navigate to="/member/requests" replace />} />
-        <Route path="/profile" element={<Navigate to="/member/profile" replace />} />
-        <Route path="/benefits" element={<Navigate to="/member/benefits" replace />} />
-        <Route path="/payments" element={<Navigate to="/member/payments" replace />} />
-        <Route path="/membership-catalog" element={<Navigate to="/member/membership-catalog" replace />} />
-        <Route path="/catalog" element={<Navigate to="/member/membership-catalog" replace />} />
+        {/* ── Legacy member short-paths ── */}
+        <Route path="/register"           element={<Navigate to={ROUTES.MEMBER_REGISTER}   replace />} />
+        <Route path="/dashboard"          element={<Navigate to={ROUTES.MEMBER_DASHBOARD}  replace />} />
+        <Route path="/requests"           element={<Navigate to={ROUTES.MEMBER_REQUESTS}   replace />} />
+        <Route path="/profile"            element={<Navigate to={ROUTES.MEMBER_PROFILE}    replace />} />
+        <Route path="/benefits"           element={<Navigate to={ROUTES.MEMBER_BENEFITS}   replace />} />
+        <Route path="/payments"           element={<Navigate to={ROUTES.MEMBER_PAYMENTS}   replace />} />
+        <Route path="/membership-catalog" element={<Navigate to={ROUTES.MEMBER_CATALOG}    replace />} />
+        <Route path="/catalog"            element={<Navigate to={ROUTES.MEMBER_CATALOG}    replace />} />
 
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        {/* ── Catch-all: send unauthenticated users to login ── */}
+        <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
     </>
   );

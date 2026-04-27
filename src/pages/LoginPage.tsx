@@ -1,55 +1,65 @@
-import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Eye, EyeOff, Mail, Lock,
   ArrowRight, CheckCircle2,
-} from "lucide-react";
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { APP_LOGO_SRC, ROUTES } from '../constants/app';
 
-/** Same asset + sizing as `RegistrationNav` (member registration navbar). */
-const NAVBAR_LOGO_SRC = "/ict_chamber_logo-removebg-preview.png";
-const NAVBAR_LOGO_CLASS = "h-10 w-10 rounded-sm object-contain";
+const NAVBAR_LOGO_CLASS = 'h-10 w-10 rounded-sm object-contain';
 
 const FEATURES = [
-  { label: "Membership Management",  desc: "Manage member profiles, tiers, and renewals in one place." },
-  { label: "Payment & Billing",      desc: "Track invoices, receipts, and payment history seamlessly." },
-  { label: "Services & Events",      desc: "Deliver services and organise events for your members." },
-  { label: "Reports & Analytics",    desc: "Get insights on member activity, revenue, and engagement." },
+  { label: 'Membership Management',  desc: 'Manage member profiles, tiers, and renewals in one place.' },
+  { label: 'Payment & Billing',      desc: 'Track invoices, receipts, and payment history seamlessly.' },
+  { label: 'Services & Events',      desc: 'Deliver services and organise events for your members.' },
+  { label: 'Reports & Analytics',    desc: 'Get insights on member activity, revenue, and engagement.' },
 ];
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
+  // If the user was redirected here, send them back after login
+  const from = (location.state as { from?: Location })?.from?.pathname;
 
   useEffect(() => {
     const prevHtml = document.documentElement.style.overflow;
     const prevBody = document.body.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
     return () => {
       document.documentElement.style.overflow = prevHtml;
       document.body.style.overflow = prevBody;
     };
   }, []);
 
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [showPwd, setShowPwd]     = useState(false);
-  const [remember, setRemember]   = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd, setShowPwd]   = useState(false);
+  const [remember, setRemember] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     if (!email || !password) {
-      setError("Please fill in all fields.");
+      setError('Please fill in all fields.');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const user = await login(email, password);
+      // Redirect to the page they tried to visit, or role-based default
+      const destination = from ?? (user.role === 'admin' ? ROUTES.ADMIN : ROUTES.MEMBER_DASHBOARD);
+      navigate(destination, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+    } finally {
       setLoading(false);
-      // Portal/role is determined by the auth API (e.g. redirect URL or user.role).
-      navigate("/admin");
-    }, 1000);
+    }
   };
 
   return (
@@ -58,15 +68,14 @@ export default function LoginPage() {
       {/* ── LEFT BRANDED PANEL ────────────────────────────────── */}
       <div
         className="relative hidden h-full min-h-0 flex-col justify-between overflow-hidden p-8 xl:p-10 lg:flex lg:w-[45%] xl:w-[42%]"
-        style={{ background: "linear-gradient(160deg, #0b1120 0%, #0f1e38 55%, #0b1120 100%)" }}
+        style={{ background: 'linear-gradient(160deg, #0b1120 0%, #0f1e38 55%, #0b1120 100%)' }}
       >
         {/* Dot-grid texture */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{
-            backgroundImage:
-              "radial-gradient(circle, #fff 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
+            backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
           }}
         />
 
@@ -77,11 +86,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <img
-              src={NAVBAR_LOGO_SRC}
-              alt="ICT Chamber"
-              className={NAVBAR_LOGO_CLASS}
-            />
+            <img src={APP_LOGO_SRC} alt="ICT Chamber" className={NAVBAR_LOGO_CLASS} />
             <div>
               <p className="text-white text-sm font-bold leading-tight">Rwanda ICT Chamber</p>
               <p className="text-[#EF9F27] text-xs font-semibold leading-tight tracking-wide">
@@ -132,11 +137,7 @@ export default function LoginPage() {
 
         {/* Mobile logo */}
         <div className="mb-4 flex shrink-0 items-center gap-3 lg:hidden">
-          <img
-            src={NAVBAR_LOGO_SRC}
-            alt="ICT Chamber"
-            className={NAVBAR_LOGO_CLASS}
-          />
+          <img src={APP_LOGO_SRC} alt="ICT Chamber" className={NAVBAR_LOGO_CLASS} />
           <div>
             <p className="text-sm font-bold leading-tight text-gray-900">Rwanda ICT Chamber</p>
             <p className="text-xs font-semibold leading-tight text-[#EF9F27]">Membership Portal</p>
@@ -182,7 +183,7 @@ export default function LoginPage() {
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <label className="text-xs font-semibold text-gray-700">Password</label>
                 <Link
-                  to="/forgot-password"
+                  to={ROUTES.FORGOT_PASSWORD}
                   className="shrink-0 text-xs font-medium text-[#EF9F27] hover:underline"
                 >
                   Forgot password?
@@ -196,7 +197,7 @@ export default function LoginPage() {
                   aria-hidden
                 />
                 <input
-                  type={showPwd ? "text" : "password"}
+                  type={showPwd ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="Enter your password"
                   value={password}
@@ -257,9 +258,9 @@ export default function LoginPage() {
 
           {/* Register link */}
           <p className="text-center text-xs text-gray-500">
-            Not a member yet?{" "}
+            Not a member yet?{' '}
             <Link
-              to="/member/register"
+              to={ROUTES.MEMBER_REGISTER}
               className="font-semibold text-[#EF9F27] hover:underline"
             >
               Apply for membership
@@ -267,9 +268,10 @@ export default function LoginPage() {
           </p>
 
           {/* Demo hint */}
-          <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-center sm:px-4 sm:py-2.5">
-            <p className="text-[10px] text-gray-400 sm:text-[11px]">
-              <span className="font-semibold text-gray-500">Demo mode:</span> enter any email & password. Routing is handled by your auth API.
+          <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2.5 sm:px-4">
+            <p className="text-[10px] font-semibold text-gray-500 sm:text-[11px]">Demo credentials</p>
+            <p className="mt-1 text-[10px] text-gray-400 sm:text-[11px]">
+              Use the seeded superadmin account or any member account activated via the registration flow.
             </p>
           </div>
         </div>

@@ -1,22 +1,11 @@
-import {
-  LayoutDashboard,
-  Users,
-  Handshake,
-  CreditCard,
-  Settings,
-  BarChart3,
-  MessageSquare,
-  Calendar,
-  Briefcase,
-  LifeBuoy,
-  LogOut,
-  Bell,
-  Menu,
-  X,
-} from 'lucide-react';
+import { LogOut, Bell, Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logoict from '../assets/logoict.png';
+import { useAuth } from '../context/AuthContext';
+import { ROUTES } from '../constants/app';
+import { ADMIN_NAV_ITEMS, ADMIN_BOTTOM_NAV_ITEMS } from '../constants/navigation';
+import type { NavItem } from '../constants/navigation';
 
 type Props = {
   children: React.ReactNode;
@@ -24,75 +13,80 @@ type Props = {
 
 export default function MainLayout({ children }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const sidebarWidthClass = 'w-64';
 
+  const handleLogout = async () => {
+    await logout();
+    navigate(ROUTES.LOGIN, { replace: true });
+  };
+
   const getTitle = () => {
     switch (location.pathname) {
-      case '/admin':
-        return 'Dashboard Overview';
-      case '/admin/members':
-        return 'Member Directory';
-      case '/admin/payments':
-        return 'Payments Ledger';
-      case '/admin/messaging':
-        return 'Bulk Messaging';
-      case '/admin/partners':
-      case '/admin/partners/directory':
-        return 'Partners';
-      case '/admin/renewals':
-        return 'Renewals';
-      case '/admin/services':
-      case '/admin/services/delivered':
-        return 'Services';
-      case '/admin/events':
-        return 'Events';
-      case '/admin/reports':
-      case '/admin/reports/service-usage':
-        return 'Reports';
-      case '/admin/settings':
-        return 'Settings';
-      case '/admin/support':
-        return 'Support';
-      case '/admin/logout':
-        return 'Log Out';
-      default:
-        return 'Dashboard';
+      case ROUTES.ADMIN:                       return 'Dashboard Overview';
+      case ROUTES.ADMIN_MEMBERS:               return 'Member Directory';
+      case ROUTES.ADMIN_PAYMENTS:              return 'Payments Ledger';
+      case ROUTES.ADMIN_MESSAGING:             return 'Bulk Messaging';
+      case ROUTES.ADMIN_PARTNERS:
+      case ROUTES.ADMIN_PARTNERS_DIRECTORY:    return 'Partners';
+      case ROUTES.ADMIN_RENEWALS:              return 'Renewals';
+      case ROUTES.ADMIN_SERVICES:
+      case ROUTES.ADMIN_SERVICES_DELIVERED:    return 'Services';
+      case ROUTES.ADMIN_EVENTS:                return 'Events';
+      case ROUTES.ADMIN_REPORTS:
+      case ROUTES.ADMIN_REPORTS_SERVICE_USAGE: return 'Reports';
+      case ROUTES.ADMIN_SETTINGS:              return 'Settings';
+      case ROUTES.ADMIN_SUPPORT:               return 'Support';
+      default:                                 return 'Dashboard';
     }
   };
 
+  const SidebarContent = () => (
+    <div className="flex min-h-0 h-full flex-col">
+      {/* Brand */}
+      <div className="flex items-center gap-2 border-b border-gray-800 p-6">
+        <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
+        <span className="text-sm font-semibold">ICT CHAMBER</span>
+      </div>
+
+      {/* Main nav */}
+      <nav className="flex-1 overflow-y-auto px-4 py-6 text-sm">
+        <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
+        <div className="space-y-2">
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <MenuItem key={item.path} item={item} onClick={() => setMobileSidebarOpen(false)} />
+          ))}
+        </div>
+      </nav>
+
+      {/* Bottom nav + logout */}
+      <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
+        {ADMIN_BOTTOM_NAV_ITEMS.map((item) => (
+          <MenuItem key={item.path} item={item} onClick={() => setMobileSidebarOpen(false)} />
+        ))}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded px-4 py-2 text-white transition-colors hover:bg-gray-800"
+        >
+          <LogOut size={18} />
+          <span>Log Out</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className={`flex h-screen ${location.pathname === '/admin' ? 'bg-[#F5F7FA]' : 'bg-white'}`}>
+    <div className={`flex h-screen ${location.pathname === ROUTES.ADMIN ? 'bg-[#F5F7FA]' : 'bg-white'}`}>
+
+      {/* Desktop sidebar */}
       <aside className={`hidden lg:flex h-screen ${sidebarWidthClass} flex-shrink-0 flex-col bg-black text-white`}>
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-gray-800 p-6">
-            <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
-            <span className="text-sm font-semibold">ICT CHAMBER</span>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto px-4 py-6 text-sm">
-            <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
-
-            <div className="space-y-2">
-              <MenuItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
-              <MenuItem to="/admin/members" icon={<Users size={18} />} label="Members" />
-              <MenuItem to="/admin/partners" icon={<Handshake size={18} />} label="Partners" />
-              <MenuItem to="/admin/payments" icon={<CreditCard size={18} />} label="Payments" />
-              <MenuItem to="/admin/services" icon={<Briefcase size={18} />} label="Services" />
-              <MenuItem to="/admin/events" icon={<Calendar size={18} />} label="Events" />
-              <MenuItem to="/admin/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
-              <MenuItem to="/admin/reports" icon={<BarChart3 size={18} />} label="Reports" />
-              <MenuItem to="/admin/settings" icon={<Settings size={18} />} label="Settings" />
-            </div>
-          </nav>
-        </div>
-
-        <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
-          <MenuItem to="/admin/support" icon={<LifeBuoy size={18} />} label="Support" />
-          <MenuItem to="/admin/logout" icon={<LogOut size={18} />} label="Log Out" />
-        </div>
+        <SidebarContent />
       </aside>
 
+      {/* Mobile sidebar drawer */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -110,35 +104,13 @@ export default function MainLayout({ children }: Props) {
             >
               <X size={18} />
             </button>
-            <div className="flex min-h-0 h-full flex-col">
-              <div className="flex items-center gap-2 border-b border-gray-800 p-6">
-                <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
-                <span className="text-sm font-semibold">ICT CHAMBER</span>
-              </div>
-              <nav className="flex-1 overflow-y-auto px-4 py-6 text-sm">
-                <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
-                <div className="space-y-2">
-                  <MenuItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
-                  <MenuItem to="/admin/members" icon={<Users size={18} />} label="Members" />
-                  <MenuItem to="/admin/partners" icon={<Handshake size={18} />} label="Partners" />
-                  <MenuItem to="/admin/payments" icon={<CreditCard size={18} />} label="Payments" />
-                  <MenuItem to="/admin/services" icon={<Briefcase size={18} />} label="Services" />
-                  <MenuItem to="/admin/events" icon={<Calendar size={18} />} label="Events" />
-                  <MenuItem to="/admin/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
-                  <MenuItem to="/admin/reports" icon={<BarChart3 size={18} />} label="Reports" />
-                  <MenuItem to="/admin/settings" icon={<Settings size={18} />} label="Settings" />
-                </div>
-              </nav>
-              <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
-                <MenuItem to="/admin/support" icon={<LifeBuoy size={18} />} label="Support" />
-                <MenuItem to="/admin/logout" icon={<LogOut size={18} />} label="Log Out" />
-              </div>
-            </div>
+            <SidebarContent />
           </div>
         </div>
       )}
 
       <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+        {/* Top bar */}
         <div className="flex h-16 items-center justify-between bg-[#0F1E3A] px-4 sm:px-6 text-white">
           <div className="flex items-center gap-3">
             <button
@@ -160,10 +132,12 @@ export default function MainLayout({ children }: Props) {
 
             <div className="hidden sm:flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-medium">Admin User</p>
+                <p className="text-sm font-medium">{user?.name ?? 'Admin'}</p>
                 <p className="text-xs text-gray-300">Super Admin</p>
               </div>
-              <div className="h-8 w-8 rounded-full bg-gray-400" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EF9F27] text-black font-bold text-sm">
+                {(user?.name ?? 'A')[0].toUpperCase()}
+              </div>
             </div>
           </div>
         </div>
@@ -174,28 +148,23 @@ export default function MainLayout({ children }: Props) {
   );
 }
 
-function MenuItem({
-  icon,
-  label,
-  to,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  to: string;
-}) {
+function MenuItem({ item, onClick }: { item: NavItem; onClick?: () => void }) {
   const location = useLocation();
-  const isActive = to === '/admin'
-    ? location.pathname === to
-    : location.pathname === to || location.pathname.startsWith(`${to}/`);
+  const { path, label, Icon } = item;
+  const isActive =
+    path === ROUTES.ADMIN
+      ? location.pathname === path
+      : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <Link
-      to={to}
+      to={path}
+      onClick={onClick}
       className={`flex items-center gap-3 rounded px-4 py-2 transition-colors ${
         isActive ? 'bg-yellow-500 font-medium text-black' : 'text-white hover:bg-gray-800'
       }`}
     >
-      {icon}
+      <Icon size={18} />
       <span>{label}</span>
     </Link>
   );

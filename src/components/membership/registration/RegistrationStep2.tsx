@@ -3,6 +3,8 @@ import { useRegistrationStore } from '../../../store/registrationStore';
 import { TIER_PRICES } from '../../../types/registration';
 import type { MembershipTier, PaymentMethod } from '../../../types/registration';
 import { Input, Button, Card } from '../ui/ui';
+import { initiatePaymentApi } from '../../../services/paymentService';
+import type { MobileMoneyCarrier } from '../../../services/paymentService';
 
 // ─── Tier data ────────────────────────────────────────────────────────────────
 const TIERS: {
@@ -332,12 +334,17 @@ export const RegistrationStep2: React.FC = () => {
   const { formData, updateTierPayment, prevStep, setShowSuccessModal } = useRegistrationStore();
   const [submitting, setSubmitting] = useState(false);
   const [tierError, setTierError] = useState('');
+  const [apiError, setApiError] = useState('');
 
   const { tier, period, paymentMethod } = formData.tierPayment;
+  const totalAmount = tier ? TIER_PRICES[tier] * period : 0;
 
-  const totalAmount = tier
-    ? TIER_PRICES[tier] * period
-    : 0;
+  const TIER_LABELS_MAP: Record<MembershipTier, string> = {
+    bronze: 'Bronze',
+    silver: 'Silver',
+    gold: 'Gold',
+    platinum: 'Platinum',
+  };
 
   const handleSubmit = async () => {
     if (!tier) {
@@ -345,12 +352,38 @@ export const RegistrationStep2: React.FC = () => {
       return;
     }
     setTierError('');
+    setApiError('');
     setSubmitting(true);
 
-    // Simulate payment processing
-    await new Promise((r) => setTimeout(r, 1800));
-    setSubmitting(false);
-    setShowSuccessModal(true);
+    try {
+      if (paymentMethod === 'mobile_money') {
+        // ── Real IremboPay mobile-money payment ──────────────────────────────
+        const { phone = '', provider = 'MTN' } =
+          formData.tierPayment.mobileMoneyDetails ?? {};
+
+        if (!phone.trim()) {
+          setApiError('Please enter your phone number for mobile money payment.');
+          setSubmitting(false);
+          return;
+        }
+
+        await initiatePaymentApi({
+          accountIdentifier: phone.trim(),
+          carrier: provider.toUpperCase() as MobileMoneyCarrier,
+          email: formData.companyInfo.email,
+          membershipType: TIER_LABELS_MAP[tier],
+        });
+      } else {
+        // ── Card / Bank Transfer: simulate processing delay ──────────────────
+        await new Promise((r) => setTimeout(r, 1800));
+      }
+
+      setShowSuccessModal(true);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -386,6 +419,11 @@ export const RegistrationStep2: React.FC = () => {
         </button>
       </div>
       {tierError && <p className="text-xs text-red-500 mb-4">{tierError}</p>}
+      {apiError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+          {apiError}
+        </div>
+      )}
 
       {/* Membership Period */}
       {/* <Card className="mb-5">

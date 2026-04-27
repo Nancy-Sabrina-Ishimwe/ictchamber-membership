@@ -32,6 +32,8 @@ const initialFormData: RegistrationFormData = {
     officialName: '',
     address: '',
     cluster: '',
+    clusterId: null,
+    subclusterId: null,
     tinNumber: '',
     email: '',
     logoFile: null,

@@ -12,7 +12,7 @@ import { ChevronDown, Search } from 'lucide-react';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { companyInfoSchema, keyContactsSchema } from '../../../lib/schemas';
 import { Input, Button, Card } from '../ui/ui';
-import { CLUSTERS } from '../../../types/registration';
+import { getClustersApi, registerApi, type ClusterItem, type SubclusterItem } from '../../../services/authService';
 
 type KeyContactsFormValues = z.infer<typeof keyContactsSchema>;
 
@@ -124,11 +124,13 @@ const FounderEntry: React.FC<FounderEntryProps> = ({ index, register, errors, on
   );
 };
 
+// ─── Cluster Dropdown (API-backed) ────────────────────────────────────────────
 const ClusterDropdown: React.FC<{
+  clusters: ClusterItem[];
   value?: string;
-  onChange: (value: string) => void;
+  onChange: (cluster: ClusterItem) => void;
   error?: string;
-}> = ({ value = '', onChange, error }) => {
+}> = ({ clusters, value = '', onChange, error }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,13 +141,12 @@ const ClusterDropdown: React.FC<{
         setOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const filteredClusters = CLUSTERS.filter((cluster) =>
-    cluster.toLowerCase().includes(query.toLowerCase()),
+  const filtered = clusters.filter((c) =>
+    c.clusterName.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
@@ -162,12 +163,12 @@ const ClusterDropdown: React.FC<{
           error ? 'border-red-400 bg-red-50/20' : '',
         ].join(' ')}
       >
-        <span className="text-sm leading-none">{value || 'All Clusters'}</span>
+        <span className="text-sm leading-none">{value || 'Select a cluster'}</span>
         <ChevronDown className={['w-4 h-4 text-gray-400 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
       </button>
 
       {open && (
-        <div className="bg-white border border-gray-200 rounded-sm mt-1.5 shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-sm mt-1.5 shadow-sm overflow-hidden z-10 relative">
           <div className="p-3 border-b border-gray-200">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -180,30 +181,25 @@ const ClusterDropdown: React.FC<{
               />
             </div>
           </div>
-          <div className="max-h-80 overflow-y-auto py-1">
-            {filteredClusters.map((cluster) => {
-              const selected = cluster === value;
+          <div className="max-h-60 overflow-y-auto py-1">
+            {filtered.map((cluster) => {
+              const selected = cluster.clusterName === value;
               return (
                 <button
-                  key={cluster}
+                  key={cluster.id}
                   type="button"
-                  onClick={() => {
-                    onChange(cluster);
-                    setOpen(false);
-                  }}
+                  onClick={() => { onChange(cluster); setOpen(false); setQuery(''); }}
                   className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-slate-50 transition-colors"
                 >
-                  <span
-                    className={[
-                      'w-5 h-5 rounded-full border-2 flex-shrink-0',
-                      selected ? 'border-gray-500 bg-gray-500/10' : 'border-gray-400',
-                    ].join(' ')}
-                  />
-                  <span className="text-sm font-semibold text-gray-700">{cluster}</span>
+                  <span className={['w-5 h-5 rounded-full border-2 flex-shrink-0', selected ? 'border-[#EF9F27] bg-[#EF9F27]/10' : 'border-gray-300'].join(' ')} />
+                  <span className="text-sm font-semibold text-gray-700">{cluster.clusterName}</span>
+                  {cluster.subclusters.length > 0 && (
+                    <span className="ml-auto text-xs text-gray-400">{cluster.subclusters.length} sub</span>
+                  )}
                 </button>
               );
             })}
-            {filteredClusters.length === 0 && (
+            {filtered.length === 0 && (
               <p className="px-4 py-3 text-sm text-gray-500">No cluster found.</p>
             )}
           </div>
@@ -214,10 +210,97 @@ const ClusterDropdown: React.FC<{
   );
 };
 
+// ─── Subcluster Dropdown ──────────────────────────────────────────────────────
+const SubclusterDropdown: React.FC<{
+  subclusters: SubclusterItem[];
+  value?: number | null;
+  onChange: (subcluster: SubclusterItem) => void;
+  disabled?: boolean;
+}> = ({ subclusters, value, onChange, disabled }) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selected = subclusters.find((s) => s.id === value);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  if (subclusters.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={containerRef}>
+      <label className="text-sm font-medium text-gray-700">Sub-cluster</label>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+        className={[
+          'w-full px-3 py-2.5 rounded-sm border bg-white text-left transition-colors duration-150 flex items-center justify-between',
+          open ? 'border-[#EF9F27] ring-2 ring-[#EF9F27]/20' : 'border-gray-200 hover:border-gray-300',
+          !selected ? 'text-gray-400' : 'text-gray-900',
+          disabled ? 'opacity-50 cursor-not-allowed' : '',
+        ].join(' ')}
+      >
+        <span className="text-sm leading-none">{selected?.name ?? 'Select a sub-cluster'}</span>
+        <ChevronDown className={['w-4 h-4 text-gray-400 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
+      </button>
+      {open && (
+        <div className="bg-white border border-gray-200 rounded-sm mt-1.5 shadow-sm overflow-hidden z-10 relative">
+          <div className="max-h-48 overflow-y-auto py-1">
+            {subclusters.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => { onChange(sub); setOpen(false); }}
+                className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-slate-50 transition-colors"
+              >
+                <span className={['w-5 h-5 rounded-full border-2 flex-shrink-0', sub.id === value ? 'border-[#EF9F27] bg-[#EF9F27]/10' : 'border-gray-300'].join(' ')} />
+                <span className="text-sm font-semibold text-gray-700">{sub.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Step 1 Page ─────────────────────────────────────────────────────────────
 export const RegistrationStep1: React.FC = () => {
   const { formData, updateCompanyInfo, updateKeyContacts, setShowTrustSealModal } =
     useRegistrationStore();
+
+  // Cluster state from API
+  const [clusters, setClusters] = useState<ClusterItem[]>([]);
+  const [selectedCluster, setSelectedCluster] = useState<ClusterItem | null>(null);
+  const [selectedSubclusterId, setSelectedSubclusterId] = useState<number | null>(
+    formData.companyInfo.subclusterId,
+  );
+  const [clusterError, setClusterError] = useState('');
+  const [subclusterError, setSubclusterError] = useState('');
+
+  // API submission state
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState('');
+
+  useEffect(() => {
+    getClustersApi()
+      .then((data) => {
+        setClusters(data);
+        // Restore previous selection
+        if (formData.companyInfo.clusterId) {
+          const prev = data.find((c) => c.id === formData.companyInfo.clusterId);
+          if (prev) setSelectedCluster(prev);
+        }
+      })
+      .catch(() => {
+        // silently fail — user can still type but must pick from list if available
+      });
+  }, []);
 
   // Company info form
   const companyForm = useForm({
@@ -246,27 +329,84 @@ export const RegistrationStep1: React.FC = () => {
   });
 
   const [logoFile, setLogoFile] = useState<File | null | undefined>(formData.companyInfo.logoFile);
-  const clusterValue = useWatch({
-    control: companyForm.control,
-    name: 'cluster',
-  });
+  const clusterValue = useWatch({ control: companyForm.control, name: 'cluster' });
+
+  const handleClusterChange = (cluster: ClusterItem) => {
+    setSelectedCluster(cluster);
+    setSelectedSubclusterId(null);
+    setClusterError('');
+    companyForm.setValue('cluster', cluster.clusterName, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
 
   const handleSubmit = async () => {
+    setApiError('');
+
+    // Validate cluster + subcluster
+    let valid = true;
+    if (!selectedCluster) {
+      setClusterError('Please select a cluster.');
+      valid = false;
+    }
+    const subclusters = selectedCluster?.subclusters ?? [];
+    if (subclusters.length > 0 && !selectedSubclusterId) {
+      setSubclusterError('Please select a sub-cluster.');
+      valid = false;
+    }
+
     const [companyValid, contactsValid] = await Promise.all([
       companyForm.trigger(),
       contactsForm.trigger(),
     ]);
 
-    if (!companyValid || !contactsValid) return;
+    if (!companyValid || !contactsValid || !valid) return;
 
     const companyValues = companyForm.getValues();
     const contactsValues = contactsForm.getValues();
 
-    updateCompanyInfo({ ...companyValues, logoFile });
-    updateKeyContacts(contactsValues);
+    setSubmitting(true);
+    try {
+      // Register the company — creates an inactive account on the backend
+      await registerApi({
+        email: companyValues.email,
+        role: 'MEMBER',
+        companyName: companyValues.officialName,
+        address: companyValues.address,
+        clusterId: selectedCluster!.id,
+        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
+        hasSeal: false, // set after TrustSeal modal in step 2
+        founders: contactsValues.founders.map(({ fullName, email, phone }) => ({
+          fullName,
+          email,
+          phone,
+        })),
+        alternateRepresentative: {
+          fullName: contactsValues.alternateRep.fullName,
+          email: contactsValues.alternateRep.email,
+          phone: contactsValues.alternateRep.phone,
+          title: contactsValues.alternateRep.role,
+        },
+        logo: logoFile ?? undefined,
+      });
 
-    // Show Trust Seal modal before proceeding to step 2
-    setShowTrustSealModal(true);
+      // Persist form data in store so step 2 can read email / company name
+      updateCompanyInfo({
+        ...companyValues,
+        logoFile,
+        clusterId: selectedCluster!.id,
+        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
+      });
+      updateKeyContacts(contactsValues);
+
+      // Proceed to tier selection / payment
+      setShowTrustSealModal(true);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -302,18 +442,27 @@ export const RegistrationStep1: React.FC = () => {
               {...companyForm.register('address')}
             />
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="flex flex-col gap-3">
                 <input type="hidden" {...companyForm.register('cluster')} />
                 <ClusterDropdown
+                  clusters={clusters}
                   value={clusterValue}
-                  onChange={(value) =>
-                    companyForm.setValue('cluster', value, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    })
-                  }
-                  error={companyForm.formState.errors.cluster?.message}
+                  onChange={handleClusterChange}
+                  error={clusterError || companyForm.formState.errors.cluster?.message}
                 />
+                {selectedCluster && selectedCluster.subclusters.length > 0 && (
+                  <SubclusterDropdown
+                    subclusters={selectedCluster.subclusters}
+                    value={selectedSubclusterId}
+                    onChange={(sub) => {
+                      setSelectedSubclusterId(sub.id);
+                      setSubclusterError('');
+                    }}
+                  />
+                )}
+                {subclusterError && (
+                  <p className="text-xs text-red-500">{subclusterError}</p>
+                )}
               </div>
               <Input
                 label="TIN Number"
@@ -416,20 +565,30 @@ export const RegistrationStep1: React.FC = () => {
         </div>
       </Card>
 
+      {/* API error */}
+      {apiError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {apiError}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <Button variant="secondary">Cancel</Button>
+        <Button variant="secondary" disabled={submitting}>Cancel</Button>
         <Button
           variant="primary"
           size="lg"
+          loading={submitting}
           onClick={handleSubmit}
           iconRight={
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-            </svg>
+            !submitting ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+              </svg>
+            ) : undefined
           }
         >
-          Save & Continue
+          {submitting ? 'Registering...' : 'Save & Continue'}
         </Button>
       </div>
     </div>

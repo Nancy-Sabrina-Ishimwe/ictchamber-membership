@@ -31,7 +31,7 @@ export const RegistrationCompleteModal: React.FC = () => {
   const handleClose = () => {
     setShowSuccessModal(false);
     reset();
-    navigate('/member/dashboard');
+    navigate('/login');
   };
 
   return (
@@ -118,20 +118,33 @@ export const RegistrationCompleteModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl bg-gray-50 p-5">
+          <div className="mt-5 rounded-xl bg-amber-50 border border-amber-100 p-5">
             <h4 className="mb-4 text-sm font-semibold text-gray-900">What happens next?</h4>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-white">
-                <svg className="h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border border-amber-200 bg-white">
+                <svg className="h-3.5 w-3.5 text-[#EF9F27]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Welcome Package</p>
+                <p className="text-sm font-semibold text-gray-900">Check your email for login credentials</p>
                 <p className="mt-1 text-xs leading-6 text-gray-500">
-                  You will receive an email with Membership certificate, payment receipt and
-                  your login credentials to the Member Portal and details about upcoming
-                  networking events.
+                  Your account is now <span className="font-semibold text-green-700">active</span>. We've sent a welcome email to{' '}
+                  <span className="font-semibold text-gray-700">{formData.companyInfo.email}</span>{' '}
+                  containing your temporary password, membership certificate, and payment receipt.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border border-amber-200 bg-white">
+                <svg className="h-3.5 w-3.5 text-[#EF9F27]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Sign in with your credentials</p>
+                <p className="mt-1 text-xs leading-6 text-gray-500">
+                  Use the temporary password from the email to sign in. You can change it later in your profile settings.
                 </p>
               </div>
             </div>
@@ -139,11 +152,11 @@ export const RegistrationCompleteModal: React.FC = () => {
 
           <div className="mt-7 flex justify-center">
             <Button
-              variant="secondary"
-              className="min-w-[96px] px-6"
+              variant="primary"
+              className="min-w-[140px] px-6"
               onClick={handleClose}
             >
-              Close
+              Go to Sign In
             </Button>
           </div>
         </div>
