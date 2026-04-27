@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
 import GeneralSettings from './pages/GeneralSettings';
+import LoginPage from './pages/LoginPage';
 import Members from './pages/Members';
 import MemberProfile from './pages/MemberProfile';
 import Messaging from './pages/Messaging';
@@ -52,7 +53,8 @@ function App() {
     <>
       <GlobalModals />
       <Routes>
-        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<LoginPage />} />
 
         <Route
           path="/admin"
