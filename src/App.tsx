@@ -230,14 +230,22 @@ function App() {
         <Route path="/support" element={<Navigate to="/admin/support" replace />} />
         <Route path="/logout" element={<Navigate to="/admin/logout" replace />} />
 
-        <Route path="/register" element={<RegistrationPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/requests" element={<RequestsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/benefits" element={<BenefitsPage />} />
-        <Route path="/payments" element={<PaymentsPage />} />
-        <Route path="/membership-catalog" element={<MembershipCatalogPage />} />
-        <Route path="/catalog" element={<Navigate to="/membership-catalog" replace />} />
+        <Route path="/member/register" element={<RegistrationPage />} />
+        <Route path="/member/dashboard" element={<DashboardPage />} />
+        <Route path="/member/requests" element={<RequestsPage />} />
+        <Route path="/member/profile" element={<ProfilePage />} />
+        <Route path="/member/benefits" element={<BenefitsPage />} />
+        <Route path="/member/payments" element={<PaymentsPage />} />
+        <Route path="/member/membership-catalog" element={<MembershipCatalogPage />} />
+
+        <Route path="/register" element={<Navigate to="/member/register" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/member/dashboard" replace />} />
+        <Route path="/requests" element={<Navigate to="/member/requests" replace />} />
+        <Route path="/profile" element={<Navigate to="/member/profile" replace />} />
+        <Route path="/benefits" element={<Navigate to="/member/benefits" replace />} />
+        <Route path="/payments" element={<Navigate to="/member/payments" replace />} />
+        <Route path="/membership-catalog" element={<Navigate to="/member/membership-catalog" replace />} />
+        <Route path="/catalog" element={<Navigate to="/member/membership-catalog" replace />} />
 
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

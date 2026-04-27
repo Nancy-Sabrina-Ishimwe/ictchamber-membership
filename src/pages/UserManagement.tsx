@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { Search, Plus, MoreVertical } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { Search, Plus, MoreVertical, ShieldCheck, Users, SlidersHorizontal, KeyRound } from "lucide-react";
 
 type User = {
   name: string;
@@ -11,8 +11,6 @@ type User = {
 };
 
 export default function UserManagement() {
-  const navigate = useNavigate();
-
   const users: User[] = [
     {
       name: "Jean Paul Ntezimana",
@@ -57,38 +55,59 @@ export default function UserManagement() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* TABS */}
+      <div className="w-fit max-w-full rounded-md border border-gray-200 bg-white p-1.5 overflow-x-auto">
+        <div className="inline-flex min-w-max gap-1">
+          <Tab
+            label="User roles & access management"
+            icon={<ShieldCheck size={14} />}
+            to="/admin/settings"
+            end
+          />
+          <Tab
+            label="User management"
+            icon={<Users size={14} />}
+            to="/admin/settings/users"
+          />
+          <Tab
+            label="General setting"
+            icon={<SlidersHorizontal size={14} />}
+            to="/admin/settings/general"
+          />
+          <Tab
+            label="Security settings"
+            icon={<KeyRound size={14} />}
+            to="/admin/settings/security"
+          />
+        </div>
+      </div>
 
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">User Management</h2>
-          <p className="text-gray-500 text-sm">
+          <h2 className="text-[34px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
+            User Management
+          </h2>
+          <p className="mt-2 text-sm text-gray-500">
             Manage user accounts, assign roles, and monitor system access.
           </p>
         </div>
 
-        <button className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
-          <Plus size={16} /> Create User
+        <button className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400">
+          <Plus size={15} />
+          Create User
         </button>
       </div>
 
-      {/* TABS */}
-      <div className="flex gap-2 bg-white border rounded-xl p-2 w-fit">
-        <Tab label="User roles & access management" onClick={() => navigate("/settings")} />
-        <Tab label="User management" onClick={()=> navigate("/settings/users")} />
-        <Tab label="General setting" onClick={() => navigate("/settings/general")} />
-        <Tab label="Security settings" onClick={() => navigate("/settings/security")} />
-      </div>
-
       {/* TABLE CONTAINER */}
-      <div className="bg-white border rounded-xl shadow-sm">
+      <div className="bg-white border rounded-md shadow-sm">
 
         {/* TOP BAR */}
-        <div className="flex justify-between items-center p-4 border-b gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center p-4 border-b">
 
           {/* SEARCH */}
-          <div className="flex items-center border rounded-md px-3 py-2 w-80">
+          <div className="flex items-center border rounded-md px-3 py-2 w-full lg:w-80">
             <Search size={16} className="text-gray-400" />
             <input
               placeholder="Search users by name or email..."
@@ -97,7 +116,7 @@ export default function UserManagement() {
           </div>
 
           {/* FILTERS */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <select className="border px-3 py-2 rounded-md text-sm">
               <option>Role Filter</option>
             </select>
@@ -109,7 +128,8 @@ export default function UserManagement() {
         </div>
 
         {/* TABLE */}
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[840px] text-sm">
           <thead className="text-gray-400">
             <tr>
               <th className="text-left p-4">User</th>
@@ -167,9 +187,10 @@ export default function UserManagement() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {/* FOOTER */}
-        <div className="flex justify-between items-center p-4 text-sm text-gray-500">
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center p-4 text-sm text-gray-500">
           <span>Showing 1 to 5 of 24 users</span>
 
           <div className="flex gap-2">
@@ -186,23 +207,29 @@ export default function UserManagement() {
 /* TAB COMPONENT */
 function Tab({
   label,
-  active,
-  onClick,
+  icon,
+  to,
+  end,
 }: {
   label: string;
-  active?: boolean;
-  onClick?: () => void;
+  icon?: React.ReactNode;
+  to: string;
+  end?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg text-sm ${
-        active
-          ? "bg-yellow-500 text-black"
-          : "text-gray-600 hover:bg-gray-100"
-      }`}
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        `inline-flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ${
+          isActive
+            ? "bg-yellow-500 text-black"
+            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        }`
+      }
     >
+      {icon ? <span className="text-black">{icon}</span> : null}
       {label}
-    </button>
+    </NavLink>
   );
 }

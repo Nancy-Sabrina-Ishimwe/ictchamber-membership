@@ -11,7 +11,10 @@ import {
   LifeBuoy,
   LogOut,
   Bell,
+  Menu,
+  X,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logoict from '../assets/logoict.png';
 
@@ -21,6 +24,8 @@ type Props = {
 
 export default function MainLayout({ children }: Props) {
   const location = useLocation();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const sidebarWidthClass = 'w-64';
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -58,7 +63,7 @@ export default function MainLayout({ children }: Props) {
 
   return (
     <div className={`flex h-screen ${location.pathname === '/admin' ? 'bg-[#F5F7FA]' : 'bg-white'}`}>
-      <div className="flex h-screen w-64 flex-col bg-black text-white">
+      <aside className={`hidden lg:flex h-screen ${sidebarWidthClass} flex-shrink-0 flex-col bg-black text-white`}>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-2 border-b border-gray-800 p-6">
             <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
@@ -86,19 +91,74 @@ export default function MainLayout({ children }: Props) {
           <MenuItem to="/admin/support" icon={<LifeBuoy size={18} />} label="Support" />
           <MenuItem to="/admin/logout" icon={<LogOut size={18} />} label="Log Out" />
         </div>
-      </div>
+      </aside>
 
-      <div className="flex flex-1 flex-col">
-        <div className="flex h-16 items-center justify-between bg-[#0F1E3A] px-6 text-white">
-          <h1 className="text-lg font-semibold">{getTitle()}</h1>
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="Close admin menu"
+          />
+          <div className={`relative h-full ${sidebarWidthClass} bg-black text-white`}>
+            <button
+              type="button"
+              className="absolute top-4 right-4 rounded-sm p-1 text-white/80 hover:bg-white/10"
+              onClick={() => setMobileSidebarOpen(false)}
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
+            <div className="flex min-h-0 h-full flex-col">
+              <div className="flex items-center gap-2 border-b border-gray-800 p-6">
+                <img src={logoict} alt="ICT Chamber" className="h-6 w-6" />
+                <span className="text-sm font-semibold">ICT CHAMBER</span>
+              </div>
+              <nav className="flex-1 overflow-y-auto px-4 py-6 text-sm">
+                <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
+                <div className="space-y-2">
+                  <MenuItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
+                  <MenuItem to="/admin/members" icon={<Users size={18} />} label="Members" />
+                  <MenuItem to="/admin/partners" icon={<Handshake size={18} />} label="Partners" />
+                  <MenuItem to="/admin/payments" icon={<CreditCard size={18} />} label="Payments" />
+                  <MenuItem to="/admin/services" icon={<Briefcase size={18} />} label="Services" />
+                  <MenuItem to="/admin/events" icon={<Calendar size={18} />} label="Events" />
+                  <MenuItem to="/admin/messaging" icon={<MessageSquare size={18} />} label="Bulk Messaging" />
+                  <MenuItem to="/admin/reports" icon={<BarChart3 size={18} />} label="Reports" />
+                  <MenuItem to="/admin/settings" icon={<Settings size={18} />} label="Settings" />
+                </div>
+              </nav>
+              <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
+                <MenuItem to="/admin/support" icon={<LifeBuoy size={18} />} label="Support" />
+                <MenuItem to="/admin/logout" icon={<LogOut size={18} />} label="Log Out" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-          <div className="flex items-center gap-6">
+      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+        <div className="flex h-16 items-center justify-between bg-[#0F1E3A] px-4 sm:px-6 text-white">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="lg:hidden rounded-sm p-1.5 hover:bg-white/10"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open admin menu"
+            >
+              <Menu size={18} />
+            </button>
+            <h1 className="text-base sm:text-lg font-semibold">{getTitle()}</h1>
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-6">
             <div className="relative cursor-pointer">
               <Bell size={20} />
               <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-medium">Admin User</p>
                 <p className="text-xs text-gray-300">Super Admin</p>
@@ -108,7 +168,7 @@ export default function MainLayout({ children }: Props) {
           </div>
         </div>
 
-        <div className="h-full overflow-y-auto p-6">{children}</div>
+        <div className="h-full overflow-y-auto overflow-x-hidden p-4 sm:p-6">{children}</div>
       </div>
     </div>
   );

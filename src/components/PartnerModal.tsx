@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   onClose: () => void;
@@ -26,14 +27,31 @@ export default function PartnerModal({ onClose }: Props) {
     onClose(); // close modal after save
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
 
       {/* Modal container */}
-      <div className="bg-white w-full max-w-3xl rounded-xl p-6 shadow-lg relative space-y-6">
+      <div className="bg-white w-full max-w-3xl rounded-md p-4 sm:p-6 shadow-lg relative space-y-5 mt-0 mb-0 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] overflow-y-auto">
 
         {/* Title */}
-        <h2 className="text-lg font-semibold">Partner Details</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base sm:text-lg font-semibold">Partner Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-black transition-colors"
+            aria-label="Close partner modal"
+          >
+            ✕
+          </button>
+        </div>
 
         {/* Form */}
         <div className="space-y-4">
@@ -47,7 +65,7 @@ export default function PartnerModal({ onClose }: Props) {
           />
 
           {/* Contact + Email */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Contact Number"
               value={form.phone}
@@ -72,7 +90,7 @@ export default function PartnerModal({ onClose }: Props) {
             options={["Program A", "Program B"]}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               label="Program Status *"
               value={form.status}
@@ -94,31 +112,24 @@ export default function PartnerModal({ onClose }: Props) {
         </div>
 
         {/* Buttons */}
-        <div className="flex justify-between">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 sm:gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border rounded hover:bg-gray-50"
+            className="w-full sm:w-auto px-4 py-2 border rounded hover:bg-gray-50"
           >
             Cancel
           </button>
 
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-yellow-500 text-black rounded font-medium hover:bg-yellow-400"
+            className="w-full sm:w-auto px-6 py-2 bg-yellow-500 text-black rounded font-medium hover:bg-yellow-400"
           >
             Save Partner
           </button>
         </div>
-
-        {/* Close (X) */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-400 hover:text-black"
-        >
-          ✕
-        </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

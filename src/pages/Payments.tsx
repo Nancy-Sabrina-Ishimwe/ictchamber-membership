@@ -1,16 +1,17 @@
 import {
-  Wallet,
-  Clock,
+  Clock3,
   XCircle,
   Search,
   Download,
   Calendar,
+  Building2,
   Landmark,
   Smartphone,
   CreditCard,
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Payment } from "../types/payment";
 import { getPayments } from "../services/paymentService";
@@ -97,37 +98,37 @@ export default function Payments() {
   const failedCount = payments.filter((p) => p.status === "Failed").length;
 
   return (
-    <div className="bg-slate-100 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-start">
         <div>
-          <h2 className="text-2xl font-bold">Membership Payments</h2>
-          <p className="text-gray-500 text-sm">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Membership Payments</h2>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">
             Tracking membership payments
           </p>
         </div>
 
         <button
           onClick={() => navigate('/admin/renewals')}
-          className="bg-yellow-500 px-5 py-2 rounded-md text-sm font-medium"
+          className="w-full md:w-auto bg-yellow-500 hover:bg-yellow-400 transition-colors px-4 sm:px-5 py-2 rounded-md text-sm font-medium"
         >
           View Renewal pending
         </button>
       </div>
 
       {/* CARDS */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
 
         <StatCard
-          icon={<Wallet size={18} />}
+          icon={<Landmark size={18} />}
           title="Total Collected (YTD)"
           value={`RWF ${formatMoney(totalCollected)}`}
           bg="bg-gray-100"
         />
 
         <StatCard
-          icon={<Clock size={18} />}
+          icon={<Clock3 size={18} />}
           title="Pending"
           value={`RWF ${formatMoney(pendingAmount)}`}
           bg="bg-yellow-100"
@@ -143,102 +144,158 @@ export default function Payments() {
       </div>
 
       {/* FILTER BAR */}
-      <div className="bg-white p-4 rounded-lg shadow-sm flex justify-between items-center">
+      <div className="bg-white p-3 sm:p-4 rounded-md border border-gray-200 shadow-sm flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
 
-        <button className="flex items-center gap-2 border px-4 py-2 rounded text-sm text-gray-600">
+        <button className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 border border-gray-200 px-3 sm:px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50 transition-colors">
           <Calendar size={16} />
           Pick date range
         </button>
 
-        <div className="flex gap-3">
-          <div className="flex items-center border rounded px-3 py-2 w-80">
-            <Search size={16} className="text-gray-400" />
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <div className="flex items-center border border-gray-200 rounded px-3 py-2 w-full sm:w-80 lg:w-96">
+            <Search size={16} className="text-gray-400 flex-shrink-0" />
             <input
               placeholder="Search company or reference..."
-              className="ml-2 outline-none text-sm w-full"
+              className="ml-2 outline-none text-sm w-full bg-transparent"
             />
           </div>
 
-          <button className="flex items-center gap-2 border px-4 py-2 rounded text-sm">
+          <button className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors">
             <Download size={16} />
             Export
           </button>
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-
-        <table className="w-full text-sm">
-
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th className="p-3 text-left">Company / Member</th>
-              <th className="p-3 text-left">Period</th>
-              <th className="p-3 text-left">Amount</th>
-              <th className="p-3 text-left">Date Paid</th>
-              <th className="p-3 text-left">Method</th>
-              <th className="p-3 text-left">Reference</th>
-              <th className="p-3 text-left">Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {payments.map((p) => (
-              <tr key={p.id} className="border-t hover:bg-gray-50">
-
-                <td className="p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">
-                      🏢
+      {/* DATA */}
+      <div className="bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden">
+        {!loading && payments.length === 0 ? (
+          <p className="p-4 sm:p-5 text-sm text-gray-500">No payments found.</p>
+        ) : (
+          <>
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {payments.map((p) => (
+                <div key={p.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 break-words">{p.companyName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 break-words">{p.tier}</p>
+                    </div>
+                    <Status status={p.status} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-gray-400">Period</p>
+                      <p className="text-gray-700 mt-0.5">{p.period}</p>
                     </div>
                     <div>
-                      <p className="font-medium">{p.companyName}</p>
-                      <p className="text-xs text-gray-500">{p.tier}</p>
+                      <p className="text-gray-400">Date Paid</p>
+                      <p className="text-gray-700 mt-0.5">{formatDate(p.datePaid)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Amount</p>
+                      <p className="text-gray-900 font-medium mt-0.5">RWF {formatMoney(p.amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Reference</p>
+                      <p className="text-gray-500 mt-0.5 break-all">{p.reference}</p>
                     </div>
                   </div>
-                </td>
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <MethodIcon method={p.method} />
+                    <span>{p.method}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                <td className="p-3">{p.period}</td>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col className="w-[26%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                </colgroup>
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="p-3 text-left">Company / Member</th>
+                    <th className="p-3 text-left">Period</th>
+                    <th className="p-3 text-left">Amount</th>
+                    <th className="p-3 text-left">Date Paid</th>
+                    <th className="p-3 text-left">Method</th>
+                    <th className="p-3 text-left">Reference</th>
+                    <th className="p-3 text-left">Status</th>
+                  </tr>
+                </thead>
 
-                <td className="p-3 font-medium">
-                  RWF {formatMoney(p.amount)}
-                </td>
+                <tbody>
+                  {payments.map((p) => (
+                    <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
 
-                <td className="p-3 text-gray-500">
-                  {formatDate(p.datePaid)}
-                </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-500">
+                            <Building2 size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{p.companyName}</p>
+                            <p className="text-xs text-gray-500 truncate">{p.tier}</p>
+                          </div>
+                        </div>
+                      </td>
 
-                <td className="p-3">
-                  <MethodIcon method={p.method} />
-                </td>
+                      <td className="p-3 whitespace-nowrap">{p.period}</td>
 
-                <td className="p-3 text-gray-400 text-xs">
-                  {p.reference}
-                </td>
+                      <td className="p-3 font-medium whitespace-nowrap">
+                        RWF {formatMoney(p.amount)}
+                      </td>
 
-                <td className="p-3">
-                  <Status status={p.status} />
-                </td>
+                      <td className="p-3 text-gray-500 whitespace-nowrap">
+                        {formatDate(p.datePaid)}
+                      </td>
 
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MethodIcon method={p.method} />
+                          <span className="truncate">{p.method}</span>
+                        </div>
+                      </td>
 
-        {/* FOOTER */}
-        <div className="flex justify-between items-center p-4 text-sm text-gray-500">
-          <p>Showing 1 to {payments.length} entries</p>
+                      <td className="p-3 text-gray-400 text-xs">
+                        <span className="break-all">{p.reference}</span>
+                      </td>
 
-          <div className="flex gap-2">
-            <button className="px-3 py-1 border rounded">Previous</button>
-            <button className="px-3 py-1 border rounded bg-black text-white">
-              Next
-            </button>
-          </div>
-        </div>
+                      <td className="p-3">
+                        <Status status={p.status} />
+                      </td>
 
-        {loading && <p className="p-4 text-gray-500">Loading...</p>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* FOOTER */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center p-3 sm:p-4 text-xs sm:text-sm text-gray-500 border-t border-gray-100">
+              <p>Showing 1 to {payments.length} entries</p>
+
+              <div className="flex gap-2">
+                <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 transition-colors">Previous</button>
+                <button className="px-3 py-1 border border-gray-900 rounded bg-gray-900 text-white hover:bg-black transition-colors">
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {loading && <p className="p-4 sm:p-5 text-sm text-gray-500">Loading...</p>}
       </div>
     </div>
   );
@@ -247,7 +304,7 @@ export default function Payments() {
 /* ===== STAT CARD ===== */
 
 type StatProps = {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   value: string;
   bg: string;
@@ -255,13 +312,13 @@ type StatProps = {
 
 function StatCard({ icon, title, value, bg }: StatProps) {
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm flex items-center justify-between">
+    <div className="bg-white border border-gray-200 p-4 sm:p-5 rounded-md shadow-sm flex items-center justify-between gap-3">
       <div>
-        <p className="text-gray-500 text-sm">{title}</p>
-        <h3 className="text-2xl font-bold mt-2">{value}</h3>
+        <p className="text-gray-500 text-xs sm:text-sm">{title}</p>
+        <h3 className="text-xl sm:text-2xl font-bold mt-1.5 sm:mt-2 text-gray-900">{value}</h3>
       </div>
 
-      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${bg}`}>
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-md flex items-center justify-center flex-shrink-0 ${bg}`}>
         {icon}
       </div>
     </div>

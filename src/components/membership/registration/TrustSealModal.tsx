@@ -1,11 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { Button } from '../ui/ui';
 
 export const TrustSealModal: React.FC = () => {
   const { formData, updateTrustSeal, setShowTrustSealModal, nextStep } = useRegistrationStore();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [certificateName, setCertificateName] = useState('');
   const selected = formData.trustSeal.hasTrustSeal;
 
   const handleContinue = () => {
@@ -15,11 +13,6 @@ export const TrustSealModal: React.FC = () => {
 
   const handleBack = () => {
     setShowTrustSealModal(false);
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    setCertificateName(file?.name ?? '');
   };
 
   return (
@@ -80,7 +73,7 @@ export const TrustSealModal: React.FC = () => {
                   <div>
                     <div className="text-sm font-semibold text-gray-900">Yes, I have one</div>
                     <p className="mt-2 text-xs leading-relaxed text-gray-500">
-                      I have my certificate ready to upload.
+                      I already hold a valid Trust Seal.
                     </p>
                   </div>
                 </div>
@@ -126,51 +119,6 @@ export const TrustSealModal: React.FC = () => {
                 )}
               </button>
             </div>
-
-            {selected === true && (
-              <div className="mt-4">
-                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
-                  </svg>
-                  Upload Certificate
-                </label>
-
-                <div
-                  className="flex min-h-[124px] flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/40 px-4 py-4 text-center"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files?.[0];
-                    setCertificateName(file?.name ?? '');
-                  }}
-                >
-                  <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01.88-7.9A5 5 0 1116.9 8H17a4 4 0 010 8H7z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 12v7m0 0l-3-3m3 3l3-3" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">Click to upload or drag and drop</p>
-                  <p className="mt-1 text-xs text-gray-400">PDF (max. 10MB)</p>
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="mt-3 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Select File
-                  </button>
-                  {certificateName && <p className="mt-3 text-xs text-[#EF9F27]">{certificateName}</p>}
-                </div>
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </div>
-            )}
 
             {selected === false && (
               <div className="mt-5 text-center">

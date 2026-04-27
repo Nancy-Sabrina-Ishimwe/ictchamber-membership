@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { KeyRound, ShieldCheck, Clock,  Smartphone } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { KeyRound, ShieldCheck, Clock, Smartphone, Users, SlidersHorizontal, Download, MonitorCheck, CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
 
 type Log = {
@@ -11,8 +11,6 @@ type Log = {
 };
 
 export default function SecuritySettings() {
-  const navigate = useNavigate();
-
   /* STATES */
   const [length, setLength] = useState<number>(12);
   const [uppercase, setUppercase] = useState<boolean>(true);
@@ -22,40 +20,56 @@ export default function SecuritySettings() {
   const [concurrent, setConcurrent] = useState<boolean>(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* TABS */}
+      <div className="w-fit max-w-full rounded-md border border-gray-200 bg-white p-1.5 overflow-x-auto">
+        <div className="inline-flex min-w-max gap-1">
+          <Tab
+            label="User roles & access management"
+            icon={<ShieldCheck size={14} />}
+            to="/admin/settings"
+            end
+          />
+          <Tab
+            label="User management"
+            icon={<Users size={14} />}
+            to="/admin/settings/users"
+          />
+          <Tab
+            label="General setting"
+            icon={<SlidersHorizontal size={14} />}
+            to="/admin/settings/general"
+          />
+          <Tab label="Security settings" icon={<KeyRound size={14} />} to="/admin/settings/security" />
+        </div>
+      </div>
 
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Security Settings</h2>
-          <p className="text-gray-500 text-sm">
+          <h2 className="text-[34px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
+            Security Settings
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-gray-500">
             Configure system-wide security policies, authentication methods, and monitor administrative access logs.
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <button className="bg-gray-200 px-4 py-2 rounded-lg text-sm">
+        <div className="flex flex-wrap gap-2 self-start">
+          <button className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
             Discard Changes
           </button>
 
-          <button className="bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded-lg text-sm font-medium">
+          <button className="rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400">
             Save Settings
           </button>
         </div>
       </div>
-
-      {/* TABS */}
-      <div className="flex gap-2 bg-white border rounded-xl p-2 w-fit">
-        <Tab label="User roles & access management" onClick={() => navigate("/settings")} />
-        <Tab label="User management" onClick={() => navigate("/settings/users")} />
-        <Tab label="General setting" onClick={() => navigate("/settings/general")} />
-        <Tab label="Security settings" active />
-      </div>
       {/* CARDS */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
         {/* PASSWORD */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-5">
+        <div className="bg-white p-6 rounded-md border shadow-sm space-y-5">
           <Header icon={<KeyRound size={18} />} title="Password Policy" />
 
           <p className="text-sm text-gray-500">
@@ -90,14 +104,14 @@ export default function SecuritySettings() {
         </div>
 
         {/* 2FA */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-5">
+        <div className="bg-white p-6 rounded-md border shadow-sm space-y-5">
           <Header icon={<ShieldCheck size={18} />} title="Two-Factor Authentication" />
 
           <p className="text-sm text-gray-500">
             Add an extra layer of security to administrative accounts.
           </p>
 
-        <div className="border rounded-xl p-4 text-sm flex gap-3 items-start">
+        <div className="border rounded-md p-4 text-sm flex gap-3 items-start">
   
   {/* ICON */}
    <Smartphone size={50} className="text-gray-400 mt-1" />
@@ -113,7 +127,7 @@ export default function SecuritySettings() {
 
 </div>
 
-          <div className="bg-yellow-50 border rounded-xl p-4 flex justify-between items-center">
+          <div className="bg-yellow-50 border rounded-md p-4 flex justify-between items-center">
             <div>
               <p className="font-medium">Enable 2FA</p>
               <p className="text-xs text-gray-500">Currently optional</p>
@@ -124,7 +138,7 @@ export default function SecuritySettings() {
         </div>
 
         {/* SESSION */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-5">
+        <div className="bg-white p-6 rounded-md border shadow-sm space-y-5">
           <Header icon={<Clock size={18} />} title="Session Management" />
 
           <p className="text-sm text-gray-500">
@@ -151,55 +165,54 @@ export default function SecuritySettings() {
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded-xl border shadow-sm">
-
-        <div className="flex justify-between items-center p-5 border-b">
+      <div className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-gray-200 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
           <div>
-            <h3 className="font-semibold">Login Activity Audit</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-gray-900">
+              <MonitorCheck size={16} className="text-gray-600" />
+              Login Activity Audit
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
               Recent authentication events across the administrative portal.
             </p>
           </div>
 
-          <button className="border px-3 py-2 rounded-md text-sm">
+          <button className="inline-flex items-center gap-2 self-start rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <Download size={14} />
             Export CSV
           </button>
         </div>
 
-        <table className="w-full text-sm">
-          <thead className="text-gray-400">
-            <tr>
-              <th className="p-4 text-left">Timestamp</th>
-              <th>User</th>
-              <th>IP</th>
-              <th>Action</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {logs.map((log, i) => (
-              <tr key={i} className="border-t text-center">
-                <td className="p-4">{log.time}</td>
-                <td>{log.user}</td>
-                <td>{log.ip}</td>
-                <td>{log.action}</td>
-                <td>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    log.status === "Success"
-                      ? "bg-green-100 text-green-600"
-                      : "bg-red-100 text-red-600"
-                  }`}>
-                    {log.status}
-                  </span>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] table-fixed text-sm">
+            <thead className="bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 text-left sm:px-5">Timestamp</th>
+                <th className="px-4 py-3 text-left sm:px-5">User Account</th>
+                <th className="px-4 py-3 text-left sm:px-5">IP Address</th>
+                <th className="px-4 py-3 text-left sm:px-5">Action Event</th>
+                <th className="px-4 py-3 text-left sm:px-5">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
 
-        <div className="text-center text-xs text-gray-400 py-3">
-          Showing most recent two events. To view more history ,please export the full log.
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {logs.map((log, i) => (
+                <tr key={i} className="text-[13px] text-gray-700">
+                  <td className="px-4 py-3.5 font-medium text-gray-600 sm:px-5">{log.time}</td>
+                  <td className="px-4 py-3.5 font-medium text-gray-900 sm:px-5">{log.user}</td>
+                  <td className="px-4 py-3.5 text-gray-500 sm:px-5">{log.ip}</td>
+                  <td className="px-4 py-3.5 text-gray-800 sm:px-5">{log.action}</td>
+                  <td className="px-4 py-3.5 sm:px-5">
+                    <StatusPill status={log.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-gray-200 px-4 py-3 text-center text-xs text-gray-500 sm:px-5">
+          Showing most recent 6 events. To view more history, please export the full log.
         </div>
       </div>
     </div>
@@ -265,39 +278,89 @@ function Toggle({
 
 function Tab({
   label,
-  active,
-  onClick,
+  icon,
+  to,
+  end,
 }: {
   label: string;
-  active?: boolean;
-  onClick?: () => void;
+  icon?: React.ReactNode;
+  to: string;
+  end?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg text-sm ${
-        active ? "bg-yellow-500 text-black" : "text-gray-600 hover:bg-gray-100"
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        `inline-flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ${
+          isActive
+            ? "bg-yellow-500 text-black"
+            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        }`
+      }
+    >
+      {icon ? <span className="text-black">{icon}</span> : null}
+      {label}
+    </NavLink>
+  );
+}
+
+function StatusPill({ status }: { status: Log["status"] }) {
+  const success = status === "Success";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+        success ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
       }`}
     >
-      {label}
-    </button>
+      {success ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+      {status}
+    </span>
   );
 }
 
 /* DATA */
 const logs: Log[] = [
   {
-    time: "2023-10-27 14:32",
+    time: "2023-10-27 14:32:01",
     user: "admin@ictchamber.rw",
     ip: "192.168.1.105",
     action: "Login",
     status: "Success",
   },
   {
-    time: "2023-10-27 10:15",
+    time: "2023-10-27 10:15:44",
     user: "jdoe@ictchamber.rw",
     ip: "10.0.0.42",
     action: "Login Attempt",
     status: "Failed",
+  },
+  {
+    time: "2023-10-26 18:45:12",
+    user: "s.smith@ictchamber.rw",
+    ip: "192.168.1.200",
+    action: "Password Reset",
+    status: "Success",
+  },
+  {
+    time: "2023-10-26 09:00:05",
+    user: "admin@ictchamber.rw",
+    ip: "192.168.1.105",
+    action: "Add user",
+    status: "Success",
+  },
+  {
+    time: "2023-10-25 22:11:30",
+    user: "unknown",
+    ip: "45.22.11.90",
+    action: "Login Attempt",
+    status: "Failed",
+  },
+  {
+    time: "2023-10-25 14:20:00",
+    user: "m.officer@ictchamber.rw",
+    ip: "10.0.1.15",
+    action: "Login",
+    status: "Success",
   },
 ];

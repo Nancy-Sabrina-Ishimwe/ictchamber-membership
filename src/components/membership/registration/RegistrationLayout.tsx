@@ -65,11 +65,11 @@ export const RegistrationFooter: React.FC = () => (
         {/* Brand */}
         <div className="md:col-span-1">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-sm bg-[#EF9F27] flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
+            <img
+              src="/ict_chamber_logo-removebg-preview.png"
+              alt="ICT Chamber Logo"
+              className="h-8 w-8 rounded-sm object-contain"
+            />
             <div>
               <p className="text-white text-xs font-bold leading-tight">Rwanda ICT Chamber</p>
               <p className="text-white text-xs font-bold leading-tight">Membership</p>
@@ -149,15 +149,15 @@ export const RegistrationFooter: React.FC = () => (
 // ─── Top Nav ─────────────────────────────────────────────────────────────────
 export const RegistrationNav: React.FC = () => (
   <nav className="bg-black px-6 py-4 flex items-center justify-between sticky left-5 top-0 z-40">
-    <div className="flex items-center gap-3">
+    <Link to="/member/register" className="flex items-center gap-3" aria-label="Go to registration">
       <img
         src="/ict_chamber_logo-removebg-preview.png"
         alt="ICT Chamber"
         className="h-10 w-10 rounded-sm object-contain"
       />
-    </div>
+    </Link>
     <Link
-      to="/membership-catalog"
+      to="/member/membership-catalog"
       className="bg-[#EF9F27] hover:bg-[#d98e1e] text-white text-sm font-semibold px-6 py-2.5 rounded-sm transition-colors"
     >
       Membership Catalog

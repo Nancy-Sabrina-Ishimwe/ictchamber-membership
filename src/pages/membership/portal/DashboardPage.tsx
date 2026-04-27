@@ -169,7 +169,7 @@ export const DashboardPage: React.FC = () => {
               </svg>
               <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
             </div>
-            <Link to="/requests" className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-2.5 py-1 rounded-sm transition-colors">
+            <Link to="/member/requests" className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-2.5 py-1 rounded-sm transition-colors">
               View All
             </Link>
           </div>
@@ -213,7 +213,7 @@ export const DashboardPage: React.FC = () => {
               </button>
               <QuickAction
                 label="View Benefits"
-                to="/benefits"
+                to="/member/benefits"
                 icon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
@@ -222,7 +222,7 @@ export const DashboardPage: React.FC = () => {
               />
               <QuickAction
                 label="Pay / Renew Membership"
-                to="/payments"
+                to="/member/payments"
                 icon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
@@ -236,13 +236,13 @@ export const DashboardPage: React.FC = () => {
           <div className="bg-white rounded-sm border border-gray-100 p-3.5">
             <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-3">Profile & Settings</p>
             <div className="grid grid-cols-2 gap-2">
-              <Link to="/profile" className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-sm border border-gray-100 hover:border-[#EF9F27]/40 hover:bg-amber-50/20 transition-all group">
+              <Link to="/member/profile" className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-sm border border-gray-100 hover:border-[#EF9F27]/40 hover:bg-amber-50/20 transition-all group">
                 <svg className="w-4 h-4 text-gray-400 group-hover:text-[#EF9F27] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
                 <span className="text-[11px] text-gray-600 group-hover:text-gray-900">Edit Profile</span>
               </Link>
-              <Link to="/payments" className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-sm border border-gray-100 hover:border-[#EF9F27]/40 hover:bg-amber-50/20 transition-all group">
+              <Link to="/member/payments" className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-sm border border-gray-100 hover:border-[#EF9F27]/40 hover:bg-amber-50/20 transition-all group">
                 <svg className="w-4 h-4 text-gray-400 group-hover:text-[#EF9F27] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                 </svg>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { TIER_PRICES } from '../../../types/registration';
 import { Button } from '../ui/ui';
@@ -18,6 +19,7 @@ const METHOD_LABELS: Record<string, string> = {
 
 export const RegistrationCompleteModal: React.FC = () => {
   const { formData, setShowSuccessModal, reset } = useRegistrationStore();
+  const navigate = useNavigate();
   const { tier, period, paymentMethod } = formData.tierPayment;
   const companyName = formData.companyInfo.officialName || 'Your Company';
 
@@ -29,13 +31,14 @@ export const RegistrationCompleteModal: React.FC = () => {
   const handleClose = () => {
     setShowSuccessModal(false);
     reset();
+    navigate('/member/dashboard');
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
-      <div className="relative w-full max-w-[600px] rounded-xl bg-white px-5 py-6 shadow-2xl animate-in fade-in zoom-in-95 duration-300 sm:px-6 sm:py-7">
+      <div className="relative w-full max-w-[600px] rounded-md bg-white px-5 py-6 shadow-2xl animate-in fade-in zoom-in-95 duration-300 sm:px-6 sm:py-7">
         <div className="mx-auto flex max-w-[520px] flex-col">
           <div className="mb-4 flex items-center justify-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-800">

@@ -7,7 +7,7 @@ import { TIER_LABELS } from '../../../types/portal';
 // ─── Nav items ────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
-    path: '/dashboard',
+    path: '/member/dashboard',
     label: 'Dashboard',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    path: '/requests',
+    path: '/member/requests',
     label: 'My Requests',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -25,7 +25,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    path: '/profile',
+    path: '/member/profile',
     label: 'My Profile',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -34,7 +34,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    path: '/benefits',
+    path: '/member/benefits',
     label: 'My Benefits',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -43,7 +43,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    path: '/payments',
+    path: '/member/payments',
     label: 'Payments',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

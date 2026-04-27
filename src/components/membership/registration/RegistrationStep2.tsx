@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { TIER_PRICES } from '../../../types/registration';
-import type { MembershipTier, MembershipPeriod, PaymentMethod } from '../../../types/registration';
+import type { MembershipTier, PaymentMethod } from '../../../types/registration';
 import { Input, Button, Card } from '../ui/ui';
 
 // ─── Tier data ────────────────────────────────────────────────────────────────
@@ -89,12 +89,6 @@ const TIERS: {
   },
 ];
 
-const PERIODS: { value: MembershipPeriod; label: string; sub: string }[] = [
-  { value: 1, label: '1 Year', sub: 'Standard commitment' },
-  { value: 2, label: '2 Years', sub: 'Renewable in 2 years' },
-  { value: 3, label: '3 Years', sub: 'Renewable in 3 years' },
-];
-
 // ─── Tier Card ────────────────────────────────────────────────────────────────
 const TierCard: React.FC<{
   tier: (typeof TIERS)[0];
@@ -105,14 +99,14 @@ const TierCard: React.FC<{
     type="button"
     onClick={onSelect}
     className={[
-      'p-4 rounded-sm border-2 text-left transition-all duration-150 flex flex-col gap-3',
+      'p-4 rounded-sm border-2 text-center transition-all duration-150 flex flex-col justify-center min-h-[104px]',
       selected
         ? 'border-[#EF9F27] bg-amber-50/30 shadow-md shadow-amber-100'
         : 'border-gray-200 hover:border-gray-300 bg-white',
     ].join(' ')}
   >
     {/* Tier name + price */}
-    <div className="flex flex-col gap-0.5 pb-3 border-b border-gray-100">
+    <div className="flex flex-col gap-0.5">
       <span
         className={[
           'text-xs font-bold tracking-widest uppercase',
@@ -125,41 +119,18 @@ const TierCard: React.FC<{
         <span className="text-xl font-bold text-gray-900">
           RWF {TIER_PRICES[tier.id].toLocaleString()}
         </span>
-        <span className="text-xs text-gray-400">per year</span>
       </div>
-      {tier.id !== 'bronze' && (
-        <p className="text-[10px] text-gray-400 mt-0.5">+ All previous tier benefits</p>
-      )}
-    </div>
-
-    {/* Features */}
-    <div className="flex flex-col gap-3">
-      {tier.features.map((group) => (
-        <div key={group.category}>
-          <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-1.5">
-            {group.category}
-          </p>
-          <ul className="flex flex-col gap-1.5">
-            {group.items.map((item) => (
-              <li key={item} className="flex items-start gap-1.5 text-xs text-gray-600">
-                <svg
-                  className={['w-3.5 h-3.5 mt-0.5 flex-shrink-0', selected ? 'text-[#EF9F27]' : 'text-gray-300'].join(' ')}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                </svg>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">Per year</p>
     </div>
   </button>
 );
 
 // ─── Payment: Credit Card ─────────────────────────────────────────────────────
-const CardPayment: React.FC = () => {
+const CardPayment: React.FC<{
+  totalAmount: number;
+  submitting: boolean;
+  onSubmit: () => void;
+}> = ({ totalAmount, submitting, onSubmit }) => {
   const { formData, updateTierPayment } = useRegistrationStore();
   const details = formData.tierPayment.cardDetails ?? { nameOnCard: '', cardNumber: '', expiry: '', cvc: '' };
 
@@ -172,53 +143,80 @@ const CardPayment: React.FC = () => {
   };
 
   return (
-    <div>
-      <div className="mb-4">
-        <h4 className="text-sm font-semibold text-gray-900 mb-1">Credit or Debit Card</h4>
-        <p className="text-xs text-gray-500 leading-relaxed">
-          All card transactions are securely processed via our 256-bit encrypted payment gateway. Your card details are never stored on our servers.
-        </p>
-        <div className="flex gap-2 mt-3">
-          {['VISA', 'MC', 'AMEX'].map((c) => (
-            <span key={c} className="px-2.5 py-1 border border-gray-200 rounded text-[10px] font-bold text-gray-500 bg-gray-50">
-              {c}
-            </span>
-          ))}
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.15fr] gap-5">
+      <div className="flex flex-col justify-between rounded-sm border border-gray-200 bg-white p-4">
+        <div>
+          <h4 className="text-2xl font-semibold text-gray-900 mb-2">Credit or Debit Card</h4>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            All card transactions are securely processed via our 256-bit encrypted payment gateway. Your card details are never stored on our servers.
+          </p>
+          <div className="flex gap-2 mt-4">
+            {['VISA', 'MC', 'AMEX'].map((c) => (
+              <span key={c} className="px-2 py-1 border border-gray-200 rounded text-[10px] font-bold text-gray-500 bg-gray-50">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-sm border border-gray-200 bg-gray-50 px-3.5 py-3">
+          <p className="flex items-center gap-2 text-sm text-gray-600">
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            Secure checkout guaranteed. Total amount to be charged:
+            <span className="font-bold text-gray-900">RWF {totalAmount.toLocaleString()}</span>
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Name on Card"
-          placeholder="e.g., John Doe"
-          value={details.nameOnCard}
-          onChange={(e) => update('nameOnCard', e.target.value)}
-        />
-        <Input
-          label="Card Number"
-          placeholder="0000 0000 0000 0000"
-          value={details.cardNumber}
-          onChange={(e) => update('cardNumber', formatCardNumber(e.target.value))}
-          maxLength={19}
-        />
-        <Input
-          label="Expiry Date"
-          placeholder="MM/YY"
-          value={details.expiry}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-            update('expiry', v.length > 2 ? `${v.slice(0,2)}/${v.slice(2)}` : v);
-          }}
-          maxLength={5}
-        />
-        <Input
-          label="Security Code (CVC)"
-          placeholder="123"
-          type="password"
-          value={details.cvc}
-          onChange={(e) => update('cvc', e.target.value.replace(/\D/g, '').slice(0, 4))}
-          maxLength={4}
-        />
+      <div className="rounded-sm border border-gray-200 bg-white p-4">
+        <div className="grid grid-cols-1 gap-4">
+          <Input
+            label="Name on Card"
+            placeholder="e.g. John Doe"
+            value={details.nameOnCard}
+            onChange={(e) => update('nameOnCard', e.target.value)}
+          />
+          <Input
+            label="Card Number"
+            placeholder="0000 0000 0000 0000"
+            value={details.cardNumber}
+            onChange={(e) => update('cardNumber', formatCardNumber(e.target.value))}
+            maxLength={19}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Expiry Date"
+              placeholder="MM/YY"
+              value={details.expiry}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                update('expiry', v.length > 2 ? `${v.slice(0,2)}/${v.slice(2)}` : v);
+              }}
+              maxLength={5}
+            />
+            <Input
+              label="Security Code (CVC)"
+              placeholder="123"
+              type="password"
+              value={details.cvc}
+              onChange={(e) => update('cvc', e.target.value.replace(/\D/g, '').slice(0, 4))}
+              maxLength={4}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            className="mt-1 w-full flex items-center justify-center gap-2 rounded-sm bg-[#EAB308] px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#d49e00] disabled:opacity-60"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            {submitting ? 'Processing Payment...' : `Pay RWF ${totalAmount.toLocaleString()}`}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -379,10 +377,18 @@ export const RegistrationStep2: React.FC = () => {
           />
         ))}
       </div>
+      <div className="mb-4 flex justify-center">
+        <button
+          type="button"
+          className="rounded-sm bg-[#EAB308] px-8 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d49e00]"
+        >
+          View Benefits
+        </button>
+      </div>
       {tierError && <p className="text-xs text-red-500 mb-4">{tierError}</p>}
 
       {/* Membership Period */}
-      <Card className="mb-5">
+      {/* <Card className="mb-5">
         <h3 className="text-base font-semibold text-gray-900 mb-1">Membership Period</h3>
         <p className="text-xs text-gray-500 mb-4">Select how long you want to commit.</p>
         <div className="grid grid-cols-3 gap-3">
@@ -412,7 +418,7 @@ export const RegistrationStep2: React.FC = () => {
             </button>
           ))}
         </div>
-      </Card>
+      </Card> */}
 
       {/* Payment */}
       <Card className="mb-8">
@@ -437,12 +443,18 @@ export const RegistrationStep2: React.FC = () => {
         </div>
 
         {/* Tab content */}
-        {paymentMethod === 'card' && <CardPayment />}
+        {paymentMethod === 'card' && (
+          <CardPayment
+            totalAmount={totalAmount}
+            submitting={submitting}
+            onSubmit={handleSubmit}
+          />
+        )}
         {paymentMethod === 'mobile_money' && <MobileMoneyPayment />}
         {paymentMethod === 'bank_transfer' && <BankTransferPayment />}
 
         {/* Amount summary */}
-        {tier && (
+        {tier && paymentMethod !== 'card' && (
           <div className="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -458,7 +470,7 @@ export const RegistrationStep2: React.FC = () => {
       </Card>
 
       {/* Pay button */}
-      {tier && (
+      {tier && paymentMethod !== 'card' && (
         <Button
           variant="primary"
           size="lg"
