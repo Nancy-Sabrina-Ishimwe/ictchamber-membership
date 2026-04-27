@@ -3,7 +3,8 @@ import { useRegistrationStore } from '../../../store/registrationStore';
 import { TIER_PRICES } from '../../../types/registration';
 import type { MembershipTier, PaymentMethod } from '../../../types/registration';
 import { Input, Button, Card } from '../ui/ui';
-import { registerApi, demoMembershipPaymentApi } from '../../../services/authService';
+import { initiatePaymentApi } from '../../../services/paymentService';
+import type { MobileMoneyCarrier } from '../../../services/paymentService';
 
 // ─── Tier data ────────────────────────────────────────────────────────────────
 const TIERS: {
@@ -354,38 +355,32 @@ export const RegistrationStep2: React.FC = () => {
     setApiError('');
     setSubmitting(true);
 
-    const { companyInfo, keyContacts, trustSeal } = formData;
-
     try {
-      // 1. Register user (creates inactive account)
-      await registerApi({
-        email: companyInfo.email,
-        role: 'MEMBER',
-        companyName: companyInfo.officialName,
-        address: companyInfo.address,
-        clusterId: companyInfo.clusterId ?? 1,
-        subclusterId: companyInfo.subclusterId ?? 1,
-        hasSeal: trustSeal.hasTrustSeal ?? false,
-        founders: keyContacts.founders.map(({ fullName, email, phone }) => ({
-          fullName,
-          email,
-          phone,
-        })),
-        alternateRepresentative: {
-          fullName: keyContacts.alternateRep.fullName,
-          email: keyContacts.alternateRep.email,
-          phone: keyContacts.alternateRep.phone,
-          title: keyContacts.alternateRep.role,
-        },
-        logo: companyInfo.logoFile ?? undefined,
-      });
+      if (paymentMethod === 'mobile_money') {
+        // ── Real IremboPay mobile-money payment ──────────────────────────────
+        const { phone = '', provider = 'MTN' } =
+          formData.tierPayment.mobileMoneyDetails ?? {};
 
-      // 2. Trigger demo payment → activates account + sends email with credentials
-      await demoMembershipPaymentApi(companyInfo.email, TIER_LABELS_MAP[tier]);
+        if (!phone.trim()) {
+          setApiError('Please enter your phone number for mobile money payment.');
+          setSubmitting(false);
+          return;
+        }
+
+        await initiatePaymentApi({
+          accountIdentifier: phone.trim(),
+          carrier: provider.toUpperCase() as MobileMoneyCarrier,
+          email: formData.companyInfo.email,
+          membershipType: TIER_LABELS_MAP[tier],
+        });
+      } else {
+        // ── Card / Bank Transfer: simulate processing delay ──────────────────
+        await new Promise((r) => setTimeout(r, 1800));
+      }
 
       setShowSuccessModal(true);
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      setApiError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
     } finally {
       setSubmitting(false);
     }

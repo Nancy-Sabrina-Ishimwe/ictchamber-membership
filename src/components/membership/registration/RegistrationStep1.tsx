@@ -12,7 +12,7 @@ import { ChevronDown, Search } from 'lucide-react';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { companyInfoSchema, keyContactsSchema } from '../../../lib/schemas';
 import { Input, Button, Card } from '../ui/ui';
-import { getClustersApi, type ClusterItem, type SubclusterItem } from '../../../services/authService';
+import { getClustersApi, registerApi, type ClusterItem, type SubclusterItem } from '../../../services/authService';
 
 type KeyContactsFormValues = z.infer<typeof keyContactsSchema>;
 
@@ -283,6 +283,10 @@ export const RegistrationStep1: React.FC = () => {
   const [clusterError, setClusterError] = useState('');
   const [subclusterError, setSubclusterError] = useState('');
 
+  // API submission state
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState('');
+
   useEffect(() => {
     getClustersApi()
       .then((data) => {
@@ -338,6 +342,8 @@ export const RegistrationStep1: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    setApiError('');
+
     // Validate cluster + subcluster
     let valid = true;
     if (!selectedCluster) {
@@ -360,16 +366,47 @@ export const RegistrationStep1: React.FC = () => {
     const companyValues = companyForm.getValues();
     const contactsValues = contactsForm.getValues();
 
-    updateCompanyInfo({
-      ...companyValues,
-      logoFile,
-      clusterId: selectedCluster!.id,
-      subclusterId: selectedSubclusterId ?? selectedCluster!.id,
-    });
-    updateKeyContacts(contactsValues);
+    setSubmitting(true);
+    try {
+      // Register the company — creates an inactive account on the backend
+      await registerApi({
+        email: companyValues.email,
+        role: 'MEMBER',
+        companyName: companyValues.officialName,
+        address: companyValues.address,
+        clusterId: selectedCluster!.id,
+        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
+        hasSeal: false, // set after TrustSeal modal in step 2
+        founders: contactsValues.founders.map(({ fullName, email, phone }) => ({
+          fullName,
+          email,
+          phone,
+        })),
+        alternateRepresentative: {
+          fullName: contactsValues.alternateRep.fullName,
+          email: contactsValues.alternateRep.email,
+          phone: contactsValues.alternateRep.phone,
+          title: contactsValues.alternateRep.role,
+        },
+        logo: logoFile ?? undefined,
+      });
 
-    // Show Trust Seal modal before proceeding to step 2
-    setShowTrustSealModal(true);
+      // Persist form data in store so step 2 can read email / company name
+      updateCompanyInfo({
+        ...companyValues,
+        logoFile,
+        clusterId: selectedCluster!.id,
+        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
+      });
+      updateKeyContacts(contactsValues);
+
+      // Proceed to tier selection / payment
+      setShowTrustSealModal(true);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -528,20 +565,30 @@ export const RegistrationStep1: React.FC = () => {
         </div>
       </Card>
 
+      {/* API error */}
+      {apiError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {apiError}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <Button variant="secondary">Cancel</Button>
+        <Button variant="secondary" disabled={submitting}>Cancel</Button>
         <Button
           variant="primary"
           size="lg"
+          loading={submitting}
           onClick={handleSubmit}
           iconRight={
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-            </svg>
+            !submitting ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+              </svg>
+            ) : undefined
           }
         >
-          Save & Continue
+          {submitting ? 'Registering...' : 'Save & Continue'}
         </Button>
       </div>
     </div>
