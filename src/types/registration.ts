@@ -13,6 +13,10 @@ export interface CompanyInfoData {
   officialName: string;
   address: string;
   cluster: string;
+  /** Backend cluster ID (integer) resolved from cluster name */
+  clusterId: number | null;
+  /** Backend subcluster ID (integer) */
+  subclusterId: number | null;
   tinNumber: string;
   email: string;
   logoFile?: File | null;
