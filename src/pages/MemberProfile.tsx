@@ -69,6 +69,10 @@ const MEMBER = {
   ],
 };
 
+type MemberState = Omit<typeof MEMBER, "status"> & {
+  status: "Active" | "Inactive";
+};
+
 const activityIconMap: Record<string, React.ReactNode> = {
   payment:  <CreditCard   size={14} />,
   email:    <Mail         size={14} />,
@@ -221,7 +225,7 @@ export default function MemberProfile() {
   const [showMessage,  setShowMessage]  = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showLedger,   setShowLedger]   = useState(false);
-  const [member, setMember] = useState(MEMBER);
+  const [member, setMember] = useState<MemberState>(MEMBER);
   const [isLoading, setIsLoading] = useState(!!id);
   const [error, setError] = useState<string | null>(null);
 
@@ -242,11 +246,11 @@ export default function MemberProfile() {
             )
           : 0;
 
-        const mappedMember = {
+        const mappedMember: MemberState = {
           ...MEMBER,
           id: String(payload.id),
           name: payload.companyName || MEMBER.name,
-          status: payload.active ? "Active" : ("Inactive" as const),
+          status: payload.active ? ("Active" as const) : ("Inactive" as const),
           tier: payload.selectedTier?.tierName ?? MEMBER.tier,
           category: payload.selectedTier?.tierName ? `${payload.selectedTier.tierName} Member` : MEMBER.category,
           cluster: payload.cluster?.clusterName ?? MEMBER.cluster,
