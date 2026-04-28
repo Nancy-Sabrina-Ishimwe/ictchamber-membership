@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
 import { StatusBadge } from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
+import type { RequestStatus } from '../../../types/portal';
+import { api } from '../../../lib/api';
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 const StatCard: React.FC<{
@@ -85,11 +87,82 @@ const QuickAction: React.FC<{
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
-  const { member, activity, requests, setShowNewRequestModal } = usePortalStore();
+  const { member, setShowNewRequestModal } = usePortalStore();
   const [dateFilter] = useState('YTD (Jan - Jul)');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState({
+    totalMyRequests: 0,
+    pendingMyRequests: 0,
+    deliveredToMe: 0,
+    highPriorityRequests: 0,
+    activeSubscriptions: 0,
+    averageDeliveryDays: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState<Array<{
+    id: string;
+    title: string;
+    date: string;
+    status: RequestStatus;
+    type: string;
+  }>>([]);
 
-  const openCount = requests.filter((r) => r.status === 'in_progress' || r.status === 'pending').length;
-  const completedCount = requests.filter((r) => r.status === 'completed').length;
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        setError(null);
+        setIsLoading(true);
+        const [dashboardResponse, activityResponse] = await Promise.all([
+          api.get<{
+            success: boolean;
+            data: {
+              summary: {
+                totalMyRequests: number;
+                pendingMyRequests: number;
+                deliveredToMe: number;
+                highPriorityRequests: number;
+                activeSubscriptions: number;
+                averageDeliveryDays: number;
+              };
+            };
+          }>('/analytics/member/dashboard'),
+          api.get<{
+            success: boolean;
+            data: Array<{
+              type: string;
+              date: string;
+              title: string;
+              status: string;
+            }>;
+          }>('/analytics/member/recent-activity'),
+        ]);
+
+        setDashboardSummary(dashboardResponse.data.data.summary);
+        setRecentActivity(
+          (activityResponse.data.data ?? []).map((item, index) => ({
+            id: `${item.type}-${index}`,
+            title: item.title,
+            date: formatDate(item.date),
+            status: mapStatus(item.status),
+            type: mapActivityType(item.type),
+          })),
+        );
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load dashboard analytics.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchDashboard();
+  }, []);
+
+  const openCount = dashboardSummary.pendingMyRequests;
+  const completedCount = dashboardSummary.deliveredToMe;
+  const membershipExpiryDays = useMemo(
+    () => (dashboardSummary.activeSubscriptions > 0 ? member.daysToExpiry : 0),
+    [dashboardSummary.activeSubscriptions, member.daysToExpiry],
+  );
 
   return (
     <PortalLayout title="Dashboard">
@@ -98,6 +171,11 @@ export const DashboardPage: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900">Welcome to your dashboard</h2>
         <p className="text-gray-500 text-xs mt-0.5">Manage your membership and service requests.</p>
       </div>
+      {error ? (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       {/* Filter bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 bg-white border border-gray-100 rounded-sm px-3.5 py-2">
@@ -147,7 +225,7 @@ export const DashboardPage: React.FC = () => {
         />
         <StatCard
           label="Membership Expiry"
-          value={member.daysToExpiry}
+          value={membershipExpiryDays}
           suffix="Days"
           icon={
             <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -174,7 +252,13 @@ export const DashboardPage: React.FC = () => {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {activity.map((item) => (
+            {isLoading && recentActivity.length === 0 ? (
+              <div className="px-4 py-4 text-xs text-gray-500">Loading recent activity...</div>
+            ) : null}
+            {!isLoading && recentActivity.length === 0 ? (
+              <div className="px-4 py-4 text-xs text-gray-500">No recent activity yet.</div>
+            ) : null}
+            {recentActivity.map((item) => (
               <div key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <ActivityIcon type={item.type} />
@@ -255,3 +339,27 @@ export const DashboardPage: React.FC = () => {
     </PortalLayout>
   );
 };
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function mapStatus(rawStatus: string): RequestStatus {
+  const value = rawStatus.trim().toUpperCase();
+  if (value === 'DELIVERED' || value === 'COMPLETED') return 'completed';
+  if (value === 'CLOSED') return 'closed';
+  if (value === 'REQUESTED' || value === 'PENDING') return 'pending';
+  return 'in_progress';
+}
+
+function mapActivityType(rawType: string) {
+  if (rawType.includes('REQUEST')) return 'request';
+  if (rawType.includes('SUBSCRIPTION')) return 'benefit';
+  return 'document';
+}
