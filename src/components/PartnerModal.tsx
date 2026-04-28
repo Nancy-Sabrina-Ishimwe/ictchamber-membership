@@ -3,9 +3,26 @@ import { createPortal } from "react-dom";
 
 type Props = {
   onClose: () => void;
+  onSave: (payload: {
+    partnerName: string;
+    contactNumber: string;
+    email: string;
+    partnershipProgram: string;
+    programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
+    fromYear: number;
+    toYear: number;
+  }) => Promise<void>;
+  isSaving?: boolean;
 };
 
-export default function PartnerModal({ onClose }: Props) {
+const mapStatusToApi = (value: string): "ONGOING" | "INCOMING" | "COMPLETED" | null => {
+  if (value === "Active") return "ONGOING";
+  if (value === "Pending") return "INCOMING";
+  if (value === "Closed") return "COMPLETED";
+  return null;
+};
+
+export default function PartnerModal({ onClose, onSave, isSaving = false }: Props) {
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -14,17 +31,38 @@ export default function PartnerModal({ onClose }: Props) {
     status: "",
     timeframe: "",
   });
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = () => {
-    console.log("Partner Data:", form);
+  const handleSubmit = async () => {
+    try {
+      setError(null);
+      const [fromYearRaw, toYearRaw] = form.timeframe.split("-").map((value) => value.trim());
+      const fromYear = Number(fromYearRaw);
+      const toYear = Number(toYearRaw);
+      const programStatus = mapStatusToApi(form.status);
 
-    // 👉 later connect backend here
+      if (!form.name || !form.phone || !form.email || !form.program || !programStatus || !Number.isInteger(fromYear) || !Number.isInteger(toYear)) {
+        setError("Please complete all required fields with a valid timeframe (e.g. 2024-2025).");
+        return;
+      }
 
-    onClose(); // close modal after save
+      await onSave({
+        partnerName: form.name,
+        contactNumber: form.phone,
+        email: form.email,
+        partnershipProgram: form.program,
+        programStatus,
+        fromYear,
+        toYear,
+      });
+      onClose();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to save partner.");
+    }
   };
 
   useEffect(() => {
@@ -55,6 +93,7 @@ export default function PartnerModal({ onClose }: Props) {
 
         {/* Form */}
         <div className="space-y-4">
+          {error ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div> : null}
 
           {/* Partner Name */}
           <Input
@@ -121,10 +160,11 @@ export default function PartnerModal({ onClose }: Props) {
           </button>
 
           <button
+            disabled={isSaving}
             onClick={handleSubmit}
-            className="w-full sm:w-auto px-6 py-2 bg-yellow-500 text-black rounded font-medium hover:bg-yellow-400"
+            className="w-full sm:w-auto px-6 py-2 bg-yellow-500 text-black rounded font-medium hover:bg-yellow-400 disabled:opacity-60"
           >
-            Save Partner
+            {isSaving ? "Saving..." : "Save Partner"}
           </button>
         </div>
       </div>

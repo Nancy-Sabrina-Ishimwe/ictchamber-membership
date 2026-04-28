@@ -1,31 +1,89 @@
 import { Users, Plus, List } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PartnerModal from "../components/PartnerModal";
+import { api } from "../lib/api";
+
+type PartnerApiItem = {
+  id: number;
+  partnerName: string;
+  contactNumber: string;
+  email: string;
+  partnershipProgram: string;
+  programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
+  fromYear: number;
+  toYear: number;
+  createdAt: string;
+};
+
+type PartnersApiResponse = {
+  success: boolean;
+  count: number;
+  data: PartnerApiItem[];
+};
 
 export default function Partners() {
   const navigate = useNavigate();
 
-  // ✅ Modal state (THIS WAS MISSING)
   const [openModal, setOpenModal] = useState(false);
+  const [partners, setPartners] = useState<PartnerApiItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const recentPartners = [
-    {
-      name: "Kigali Innovation City",
-      type: "Strategic Partner",
-      date: "Oct 24, 2023",
-    },
-    {
-      name: "Global Tech Hub Alliance",
-      type: "Affiliate",
-      date: "Oct 22, 2023",
-    },
-    {
-      name: "Rwanda Development Board",
-      type: "Government Entity",
-      date: "Oct 15, 2023",
-    },
-  ];
+  useEffect(() => {
+    const loadPartners = async () => {
+      try {
+        setError(null);
+        setIsLoading(true);
+        const response = await api.get<PartnersApiResponse>("/partners");
+        setPartners(response.data.data ?? []);
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : "Failed to load partners.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadPartners();
+  }, []);
+
+  const recentPartners = partners.slice(0, 3).map((partner) => ({
+    id: partner.id,
+    name: partner.partnerName,
+    type: partner.partnershipProgram,
+    date: new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(partner.createdAt)),
+  }));
+
+  const handleSavePartner = async (payload: {
+    partnerName: string;
+    contactNumber: string;
+    email: string;
+    partnershipProgram: string;
+    programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
+    fromYear: number;
+    toYear: number;
+  }) => {
+    try {
+      setIsSaving(true);
+      setError(null);
+      const response = await api.post<{ success: boolean; data: PartnerApiItem }>("/partners", payload);
+      if (response.data.data) {
+        setPartners((prev) => [response.data.data, ...prev]);
+      } else {
+        const refresh = await api.get<PartnersApiResponse>("/partners");
+        setPartners(refresh.data.data ?? []);
+      }
+    } catch (saveError) {
+      throw (saveError instanceof Error ? saveError : new Error("Failed to create partner."));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -65,8 +123,8 @@ export default function Partners() {
       <div className="bg-white rounded-md border border-gray-200 p-4 sm:p-6 shadow-sm w-full sm:max-w-sm flex justify-between items-center">
         <div>
           <p className="text-gray-500 text-sm">Total Partners</p>
-          <h3 className="text-2xl sm:text-3xl font-bold mt-1.5 text-gray-900">142</h3>
-          <p className="text-xs text-gray-400 mt-1">+12 from last month</p>
+          <h3 className="text-2xl sm:text-3xl font-bold mt-1.5 text-gray-900">{partners.length}</h3>
+          <p className="text-xs text-gray-400 mt-1">{isLoading ? "Loading..." : "Live from API"}</p>
         </div>
 
         <div className="w-10 h-10 bg-yellow-100 text-yellow-600 flex items-center justify-center rounded-full flex-shrink-0">
@@ -84,9 +142,13 @@ export default function Partners() {
         </div>
 
         <div>
-          {recentPartners.map((p, i) => (
+          {error ? <div className="px-4 sm:px-5 py-4 text-sm text-red-600">{error}</div> : null}
+          {!error && !isLoading && recentPartners.length === 0 ? (
+            <div className="px-4 sm:px-5 py-4 text-sm text-gray-500">No partners found.</div>
+          ) : null}
+          {recentPartners.map((p) => (
             <div
-              key={i}
+              key={p.id}
               className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center px-4 sm:px-5 py-4 border-b border-gray-100 last:border-none hover:bg-gray-50/70 transition-colors"
             >
               <div className="flex gap-3 items-center min-w-0">
@@ -108,7 +170,7 @@ export default function Partners() {
 
       {/* ✅ MODAL (THIS MAKES THE POPUP LIKE YOUR DESIGN) */}
       {openModal && (
-        <PartnerModal onClose={() => setOpenModal(false)} />
+        <PartnerModal onClose={() => setOpenModal(false)} onSave={handleSavePartner} isSaving={isSaving} />
       )}
     </div>
   );
