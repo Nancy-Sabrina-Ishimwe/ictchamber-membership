@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
   ChevronLeft, Shield, Building2, MapPin, Mail, Phone, Globe,
@@ -8,6 +8,7 @@ import {
   AlignRight, List, Image, Smile, Paperclip, Send, Calendar, Clock,
   RotateCcw, ChevronLeft as ChLeft, ChevronRight, Users, Filter,
 } from "lucide-react";
+import { api } from "../lib/api";
 
 /* ============================================================
    STATIC MOCK DATA
@@ -82,16 +83,232 @@ const activityColorMap: Record<string, string> = {
   upgrade:  "bg-yellow-100 text-yellow-600",
 };
 
+type MemberProfileApiResponse = {
+  success: boolean;
+  data: {
+    id: number;
+    companyName: string;
+    email: string;
+    active: boolean;
+    tin?: string | null;
+    address?: string | null;
+    logoUrl?: string | null;
+    cluster?: { clusterName: string } | null;
+    subcluster?: { name: string } | null;
+    selectedTier?: { tierName: string } | null;
+    contacts?: Array<{
+      fullName: string;
+      title?: string | null;
+      email: string;
+      phone: string;
+    }>;
+    subscriptions?: Array<{
+      startDate: string;
+      endDate: string;
+      tier?: { tierName: string } | null;
+    }>;
+    membershipPayments?: Array<{
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      status: string;
+      paidAt?: string | null;
+      createdAt: string;
+      tier?: { tierName: string } | null;
+    }>;
+    serviceRequests?: Array<{
+      status: string;
+      updatedAt: string;
+      requestTitle: string;
+    }>;
+  };
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+/* ============================================================
+   SKELETON
+============================================================ */
+function SkeletonLine({ w = "full" }: { w?: string }) {
+  return <div className={`h-3 bg-gray-200 rounded w-${w} animate-pulse`} />;
+}
+
+function SkeletonCard({ rows = 4, tall = false }: { rows?: number; tall?: boolean }) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-4 sm:p-5 animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-32 mb-4" />
+      <div className={`space-y-2.5 ${tall ? "min-h-[120px]" : ""}`}>
+        {Array.from({ length: rows }).map((_, i) => (
+          <SkeletonLine key={i} w={["full", "4/5", "3/5", "full", "2/3"][i % 5]} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MemberProfileSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Breadcrumb */}
+      <div className="h-4 bg-gray-200 rounded w-44 animate-pulse" />
+
+      {/* Profile header */}
+      <div className="rounded-md border border-gray-200 bg-white p-4 sm:p-5 animate-pulse">
+        <div className="flex items-start gap-4">
+          <div className="h-16 w-16 flex-shrink-0 rounded-full bg-gray-200" />
+          <div className="flex-1 space-y-2 pt-1">
+            <div className="flex gap-2">
+              <div className="h-5 bg-gray-200 rounded w-40" />
+              <div className="h-5 bg-gray-200 rounded-full w-16" />
+              <div className="h-5 bg-gray-200 rounded w-16" />
+            </div>
+            <div className="flex gap-4">
+              <div className="h-3 bg-gray-200 rounded w-24" />
+              <div className="h-3 bg-gray-200 rounded w-28" />
+              <div className="h-3 bg-gray-200 rounded w-20" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {/* Left sidebar */}
+        <div className="space-y-4">
+          <SkeletonCard rows={5} />
+          <SkeletonCard rows={4} />
+          <SkeletonCard rows={3} />
+        </div>
+        {/* Right main */}
+        <div className="space-y-4 xl:col-span-2">
+          <SkeletonCard rows={3} tall />
+          <SkeletonCard rows={5} tall />
+          <SkeletonCard rows={4} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ============================================================
    MAIN PAGE
 ============================================================ */
 export default function MemberProfile() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [showMessage,  setShowMessage]  = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showLedger,   setShowLedger]   = useState(false);
+  const [member, setMember] = useState(MEMBER);
+  const [isLoading, setIsLoading] = useState(!!id);
+  const [error, setError] = useState<string | null>(null);
 
-  const progressPct = Math.min(100, Math.round((MEMBER.membership.daysRemaining / 365) * 100));
+  useEffect(() => {
+    const fetchMemberProfile = async () => {
+      if (!id) return;
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await api.get<MemberProfileApiResponse>(`/members/${id}`);
+        const payload = response.data.data;
+        const primaryContact = payload.contacts?.[0];
+        const latestSubscription = payload.subscriptions?.[0];
+        const daysRemaining = latestSubscription?.endDate
+          ? Math.max(
+              Math.ceil((new Date(latestSubscription.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+              0,
+            )
+          : 0;
+
+        const mappedMember = {
+          ...MEMBER,
+          id: String(payload.id),
+          name: payload.companyName || MEMBER.name,
+          status: payload.active ? "Active" : ("Inactive" as const),
+          tier: payload.selectedTier?.tierName ?? MEMBER.tier,
+          category: payload.selectedTier?.tierName ? `${payload.selectedTier.tierName} Member` : MEMBER.category,
+          cluster: payload.cluster?.clusterName ?? MEMBER.cluster,
+          location: payload.subcluster?.name ?? payload.address ?? MEMBER.location,
+          contact: {
+            name: primaryContact?.fullName ?? payload.companyName ?? MEMBER.contact.name,
+            title: primaryContact?.title ?? MEMBER.contact.title,
+            email: primaryContact?.email ?? payload.email ?? MEMBER.contact.email,
+            phone: primaryContact?.phone ?? MEMBER.contact.phone,
+            website: payload.logoUrl ?? MEMBER.contact.website,
+            address: payload.address ?? MEMBER.contact.address,
+          },
+          registration: {
+            ...MEMBER.registration,
+            tin: payload.tin ?? MEMBER.registration.tin,
+            category: payload.cluster?.clusterName ?? MEMBER.registration.category,
+            memberId: String(payload.id),
+          },
+          membership: {
+            validFrom: formatDate(latestSubscription?.startDate),
+            expiresOn: formatDate(latestSubscription?.endDate),
+            daysRemaining,
+            renewalNote:
+              daysRemaining > 0
+                ? `Membership has ${daysRemaining} day(s) remaining.`
+                : "Membership subscription not active.",
+          },
+          payments: (payload.membershipPayments ?? []).slice(0, 3).map((payment) => ({
+            invoiceId: payment.invoiceNumber,
+            date: formatDate(payment.paidAt ?? payment.createdAt),
+            description: `${payment.tier?.tierName ?? "Membership"} payment`,
+            amount: payment.amount.toLocaleString(),
+            status: payment.status,
+          })),
+          allPayments: (payload.membershipPayments ?? []).map((payment) => ({
+            invoiceId: payment.invoiceNumber,
+            date: formatDate(payment.paidAt ?? payment.createdAt),
+            description: `${payment.tier?.tierName ?? "Membership"} payment`,
+            amount: payment.amount.toLocaleString(),
+            status: payment.status,
+          })),
+          activity: (payload.serviceRequests ?? []).slice(0, 5).map((request) => ({
+            type: "document",
+            label: `Service Request ${request.status}`,
+            description: request.requestTitle,
+            time: formatDateTime(request.updatedAt),
+          })),
+        };
+        setMember(mappedMember);
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : "Failed to load member profile.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchMemberProfile();
+  }, [id]);
+
+  if (isLoading) return <MemberProfileSkeleton />;
+
+  const progressPct = Math.min(100, Math.round((member.membership.daysRemaining / 365) * 100));
 
   return (
     <div className="space-y-4">
@@ -104,8 +321,9 @@ export default function MemberProfile() {
         <ChevronLeft size={14} />
         Back to Members
         <span className="text-gray-300">/</span>
-        <span className="text-gray-800 font-medium">TechVision Rwanda Ltd.</span>
+        <span className="text-gray-800 font-medium">{member.name}</span>
       </button>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
       {/* Profile header card */}
       <div className="rounded-md border border-gray-200 bg-white p-4 sm:p-5">
@@ -114,26 +332,26 @@ export default function MemberProfile() {
             <div className="h-16 w-16 flex-shrink-0 rounded-full bg-gray-200" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-gray-900">{MEMBER.name}</h1>
+                <h1 className="text-xl font-bold text-gray-900">{member.name}</h1>
                 <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                  <CheckCircle2 size={11} /> Active
+                  <CheckCircle2 size={11} /> {member.status}
                 </span>
                 <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white">
-                  {MEMBER.tier}
+                  {member.tier}
                 </span>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1">
                   <Shield size={12} className="text-gray-400" />
-                  {MEMBER.category}
+                  {member.category}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Building2 size={12} className="text-gray-400" />
-                  {MEMBER.cluster}
+                  {member.cluster}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin size={12} className="text-gray-400" />
-                  {MEMBER.location}
+                  {member.location}
                 </span>
               </div>
             </div>
@@ -157,13 +375,13 @@ export default function MemberProfile() {
 
           {/* Contact Information */}
           <Card title="Contact Information">
-            <p className="font-semibold text-sm text-gray-900">{MEMBER.contact.name}</p>
-            <p className="text-xs text-gray-500 mb-3">{MEMBER.contact.title}</p>
+            <p className="font-semibold text-sm text-gray-900">{member.contact.name}</p>
+            <p className="text-xs text-gray-500 mb-3">{member.contact.title}</p>
             <div className="space-y-2 text-xs text-gray-700">
-              <ContactRow icon={<Mail size={13} />}  value={MEMBER.contact.email}   href={`mailto:${MEMBER.contact.email}`} />
-              <ContactRow icon={<Phone size={13} />} value={MEMBER.contact.phone} />
-              <ContactRow icon={<Globe size={13} />} value={MEMBER.contact.website} href={`https://${MEMBER.contact.website}`} />
-              <ContactRow icon={<MapPin size={13} />} value={MEMBER.contact.address} />
+              <ContactRow icon={<Mail size={13} />}  value={member.contact.email}   href={`mailto:${member.contact.email}`} />
+              <ContactRow icon={<Phone size={13} />} value={member.contact.phone} />
+              <ContactRow icon={<Globe size={13} />} value={member.contact.website} href={member.contact.website} />
+              <ContactRow icon={<MapPin size={13} />} value={member.contact.address} />
             </div>
           </Card>
 
@@ -172,21 +390,21 @@ export default function MemberProfile() {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <p className="text-gray-400">TIN Number</p>
-                <p className="font-semibold text-gray-800 mt-0.5">{MEMBER.registration.tin}</p>
+                <p className="font-semibold text-gray-800 mt-0.5">{member.registration.tin}</p>
               </div>
               <div>
                 <p className="text-gray-400">RDB Reg. No.</p>
-                <p className="font-semibold text-gray-800 mt-0.5">{MEMBER.registration.rdb}</p>
+                <p className="font-semibold text-gray-800 mt-0.5">{member.registration.rdb}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-gray-400 mb-1">Business Category</p>
                 <span className="rounded-md bg-black-50 px-2 py-1 text-xs font-medium text-black-700">
-                  {MEMBER.registration.category}
+                  {member.registration.category}
                 </span>
               </div>
               <div className="col-span-2">
                 <p className="text-gray-400">Member ID</p>
-                <p className="font-semibold text-black-600 mt-0.5">{MEMBER.registration.memberId}</p>
+                <p className="font-semibold text-black-600 mt-0.5">{member.registration.memberId}</p>
               </div>
             </div>
           </Card>
@@ -194,7 +412,7 @@ export default function MemberProfile() {
           {/* Uploaded Documents */}
           <Card title="Uploaded Documents">
             <div className="space-y-2.5">
-              {MEMBER.documents.map((doc) => (
+              {member.documents.map((doc) => (
                 <div key={doc.name} className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-gray-500">
                     <FileText size={14} />
@@ -223,14 +441,14 @@ export default function MemberProfile() {
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Valid From</p>
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
                     <Calendar size={12} className="text-gray-400" />
-                    {MEMBER.membership.validFrom}
+                    {member.membership.validFrom}
                   </p>
                 </div>
                 <div>
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Expires On</p>
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
                     <Clock size={12} className="text-yellow-500" />
-                    {MEMBER.membership.expiresOn}
+                    {member.membership.expiresOn}
                   </p>
                 </div>
               </div>
@@ -238,12 +456,12 @@ export default function MemberProfile() {
               <div className="w-full rounded-md border border-gray-200 bg-gray-50 p-3 sm:w-[210px]">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-medium text-gray-600">Days Remaining</span>
-                  <span className="text-[30px] font-bold leading-none text-gray-900">{MEMBER.membership.daysRemaining}</span>
+                  <span className="text-[30px] font-bold leading-none text-gray-900">{member.membership.daysRemaining}</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
                   <div className="h-full rounded-full bg-[#0f2a5c]" style={{ width: `${progressPct}%` }} />
                 </div>
-                <p className="mt-1.5 text-[10px] text-gray-500">{MEMBER.membership.renewalNote}</p>
+                <p className="mt-1.5 text-[10px] text-gray-500">{member.membership.renewalNote}</p>
               </div>
             </div>
           </Card>
@@ -273,7 +491,7 @@ export default function MemberProfile() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {MEMBER.payments.map((p) => (
+                  {member.payments.map((p) => (
                     <tr key={p.invoiceId} className="text-gray-700">
                       <td className="py-2.5 pr-3 font-semibold text-gray-900">{p.invoiceId}</td>
                       <td className="py-2.5 pr-3 whitespace-nowrap">{p.date}</td>
@@ -303,7 +521,7 @@ export default function MemberProfile() {
           {/* Recent Activity */}
           <Card title="Recent Activity & Interactions">
             <div className="space-y-3">
-              {MEMBER.activity.map((item, i) => (
+              {member.activity.map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${activityColorMap[item.type]}`}>
                     {activityIconMap[item.type]}
@@ -325,7 +543,7 @@ export default function MemberProfile() {
       {/* Modals */}
       {showMessage  ? <MessageModal  onClose={() => setShowMessage(false)}  onSchedule={() => { setShowMessage(false); setShowSchedule(true); }} /> : null}
       {showSchedule ? <ScheduleModal onClose={() => setShowSchedule(false)} /> : null}
-      {showLedger   ? <LedgerModal   onClose={() => setShowLedger(false)}   /> : null}
+      {showLedger   ? <LedgerModal   onClose={() => setShowLedger(false)} entries={member.allPayments} /> : null}
     </div>
   );
 }
@@ -660,7 +878,13 @@ function ScheduleModal({ onClose }: { onClose: () => void }) {
 /* ============================================================
    PAYMENT LEDGER MODAL
 ============================================================ */
-function LedgerModal({ onClose }: { onClose: () => void }) {
+function LedgerModal({
+  onClose,
+  entries,
+}: {
+  onClose: () => void;
+  entries: Array<{ invoiceId: string; date: string; description: string; amount: string; status: string }>;
+}) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -695,7 +919,7 @@ function LedgerModal({ onClose }: { onClose: () => void }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {MEMBER.allPayments.map((p, i) => (
+              {entries.map((p, i) => (
                 <tr key={i} className="text-gray-700 hover:bg-gray-50">
                   <td className="px-4 py-3 font-semibold text-gray-900">{p.invoiceId}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{p.date}</td>

@@ -131,6 +131,70 @@ function formatActivityDate(iso: string) {
   }).format(date);
 }
 
+// ─── Skeleton components ─────────────────────────────────────────────────────
+function StatCardSkeleton() {
+  return (
+    <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex flex-col gap-3 animate-pulse">
+      <div className="w-10 h-10 rounded-md bg-gray-200" />
+      <div className="space-y-2">
+        <div className="h-3 bg-gray-200 rounded w-20" />
+        <div className="h-7 bg-gray-200 rounded w-14" />
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="animate-pulse pt-1">
+      <div className="h-4 bg-gray-200 rounded w-32 mb-1.5" />
+      <div className="h-3 bg-gray-200 rounded w-48 mb-4" />
+      <div className="h-[170px] bg-gray-100 rounded-md" />
+    </div>
+  );
+}
+
+function ActivityCardSkeleton() {
+  return (
+    <div className="rounded-md border border-gray-100 p-3 animate-pulse">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3.5 bg-gray-200 rounded w-32" />
+          <div className="h-3 bg-gray-200 rounded w-20" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1.5">
+          <div className="h-3 bg-gray-200 rounded w-28" />
+          <div className="h-3 bg-gray-200 rounded w-20" />
+        </div>
+        <div className="h-5 bg-gray-200 rounded-full w-16" />
+      </div>
+    </div>
+  );
+}
+
+function ActivityRowSkeleton() {
+  return (
+    <tr className="animate-pulse">
+      <td className="py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 bg-gray-200 rounded w-32" />
+            <div className="h-3 bg-gray-200 rounded w-20" />
+          </div>
+        </div>
+      </td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-28" /></td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-24" /></td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-14" /></td>
+      <td className="py-4 text-right"><div className="h-5 bg-gray-200 rounded-full w-16 ml-auto" /></td>
+    </tr>
+  );
+}
+
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const statusStyles = {
   Success: "bg-green-100 text-green-700",
@@ -332,30 +396,36 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          icon={<Users size={22} className="text-blue-600" />}
-          iconBg="bg-blue-100"
-          title="Total Members"
-          value={summary.totalMembers.toLocaleString()}
-        />
-        <StatCard
-          icon={<UserCheck size={22} className="text-green-600" />}
-          iconBg="bg-green-100"
-          title="Active Members"
-          value={summary.activeMembers.toLocaleString()}
-        />
-        <StatCard
-          icon={<UserX size={22} className="text-red-500" />}
-          iconBg="bg-red-100"
-          title="Inactive Members"
-          value={inactiveMembers.toLocaleString()}
-        />
-        <StatCard
-          icon={<DollarSign size={22} className="text-yellow-600" />}
-          iconBg="bg-yellow-100"
-          title="Total Partners"
-          value={summary.totalPartners.toLocaleString()}
-        />
+        {isLoadingAnalytics ? (
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+        ) : (
+          <>
+            <StatCard
+              icon={<Users size={22} className="text-blue-600" />}
+              iconBg="bg-blue-100"
+              title="Total Members"
+              value={summary.totalMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<UserCheck size={22} className="text-green-600" />}
+              iconBg="bg-green-100"
+              title="Active Members"
+              value={summary.activeMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<UserX size={22} className="text-red-500" />}
+              iconBg="bg-red-100"
+              title="Inactive Members"
+              value={inactiveMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<DollarSign size={22} className="text-yellow-600" />}
+              iconBg="bg-yellow-100"
+              title="Total Partners"
+              value={summary.totalPartners.toLocaleString()}
+            />
+          </>
+        )}
       </div>
 
       {analyticsError ? (
@@ -366,88 +436,67 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Revenue Bar Chart */}
+        {/* Service Requests Bar Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Service Requests</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">
-            Last 6 months ({averageDeliveryDays} avg delivery days)
-          </p>
-          <div className="-ml-2 sm:-ml-1">
-          <ResponsiveContainer width="100%" height={170}>
-            <BarChart
-              data={serviceRequestChartData}
-              barSize={24}
-              margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                width={34}
-              />
-              <Tooltip content={<CountTooltip />} cursor={{ fill: "#f9f9f9" }} />
-              <Bar dataKey="requests" fill="#EAB308" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          </div>
+          {isLoadingAnalytics ? <ChartSkeleton /> : (
+            <>
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base">Service Requests</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">
+                Last 6 months ({averageDeliveryDays} avg delivery days)
+              </p>
+              <div className="-ml-2 sm:-ml-1">
+                <ResponsiveContainer width="100%" height={170}>
+                  <BarChart
+                    data={serviceRequestChartData}
+                    barSize={24}
+                    margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9ca3af" }} width={34} />
+                    <Tooltip content={<CountTooltip />} cursor={{ fill: "#f9f9f9" }} />
+                    <Bar dataKey="requests" fill="#EAB308" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Membership Area Chart */}
+        {/* Partner Growth Area Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Partner Growth</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in last 6 months</p>
-          <div className="-ml-2 sm:-ml-1">
-          <ResponsiveContainer width="100%" height={170}>
-            <AreaChart
-              data={partnersChartData}
-              margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="colorRenewed" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                width={30}
-              />
-              <Tooltip content={<MemberTooltip />} />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                formatter={(v) => (
-                  <span className="text-xs text-gray-600">
-                    {v === "partners" ? "Partners" : v}
-                  </span>
-                )}
-              />
-              <Area type="monotone" dataKey="partners" name="partners" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
-            </AreaChart>
-          </ResponsiveContainer>
-          </div>
+          {isLoadingAnalytics ? <ChartSkeleton /> : (
+            <>
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base">Partner Growth</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in last 6 months</p>
+              <div className="-ml-2 sm:-ml-1">
+                <ResponsiveContainer width="100%" height={170}>
+                  <AreaChart data={partnersChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRenewed" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9ca3af" }} width={30} />
+                    <Tooltip content={<MemberTooltip />} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      formatter={(v) => (
+                        <span className="text-xs text-gray-600">{v === "partners" ? "Partners" : v}</span>
+                      )}
+                    />
+                    <Area type="monotone" dataKey="partners" name="partners" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      {isLoadingAnalytics ? (
-        <p className="text-sm text-gray-500">Loading analytics...</p>
-      ) : null}
 
       {/* Recent Activity */}
       <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
@@ -458,32 +507,36 @@ export default function Dashboard() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {recentActivities.map((item) => (
-            <div key={item.id} className="rounded-md border border-gray-100 p-3">
-              <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor: item.color }}
-                >
-                  {item.initials}
+          {isLoadingAnalytics
+            ? Array.from({ length: 3 }).map((_, i) => <ActivityCardSkeleton key={i} />)
+            : recentActivities.map((item) => (
+                <div key={item.id} className="rounded-md border border-gray-100 p-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    >
+                      {item.initials}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-xs sm:text-sm text-gray-900">{item.company}</p>
+                      <p className="text-xs text-gray-400">ID: #{item.id}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-600">{item.action}</p>
+                      <p className="text-xs text-gray-400">{item.date}</p>
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-xs sm:text-sm text-gray-900">{item.company}</p>
-                  <p className="text-xs text-gray-400">ID: #{item.id}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600">{item.action}</p>
-                  <p className="text-xs text-gray-400">{item.date}</p>
-                </div>
-                <StatusBadge status={item.status} />
-              </div>
-            </div>
-          ))}
+              ))
+          }
         </div>
 
         {/* Desktop table */}
+
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm min-w-[680px]">
             <thead>
@@ -496,7 +549,9 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {recentActivities.map((item) => (
+              {isLoadingAnalytics
+                ? Array.from({ length: 4 }).map((_, i) => <ActivityRowSkeleton key={i} />)
+                : recentActivities.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
@@ -519,7 +574,8 @@ export default function Dashboard() {
                     <StatusBadge status={item.status} />
                   </td>
                 </tr>
-              ))}
+              ))
+              }
             </tbody>
           </table>
         </div>
