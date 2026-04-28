@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
 import { PortalInput, PortalTextarea } from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
 import type { ContactPerson } from '../../../types/portal';
+import { api } from '../../../lib/api';
 
 const ContactRow: React.FC<{
   contact: ContactPerson;
@@ -60,17 +61,114 @@ export const ProfilePage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setError(null);
+        const response = await api.get<{
+          success: boolean;
+          data: {
+            companyName: string;
+            address?: string | null;
+            email: string;
+            tin?: string | null;
+            contacts?: Array<{
+              id: number;
+              fullName: string;
+              email: string;
+              phone: string;
+              title?: string | null;
+              type?: string;
+            }>;
+          };
+        }>('/auth/me');
+
+        const payload = response.data.data;
+        setForm((prev) => ({
+          ...prev,
+          companyName: payload.companyName ?? prev.companyName,
+          address: payload.address ?? prev.address,
+        }));
+
+        updateMember({
+          companyName: payload.companyName ?? member.companyName,
+          email: payload.email ?? member.email,
+          address: payload.address ?? member.address,
+          tinNumber: payload.tin ?? member.tinNumber,
+        });
+
+        if (Array.isArray(payload.contacts) && payload.contacts.length > 0) {
+          updateContacts(
+            payload.contacts.map((contact) => {
+              const names = contact.fullName.trim().split(' ');
+              const initials = names.slice(0, 2).map((part) => part[0] ?? '').join('').toUpperCase() || 'NA';
+              return {
+                id: String(contact.id),
+                fullName: contact.fullName,
+                email: contact.email,
+                phone: contact.phone,
+                role: contact.title ?? contact.type ?? 'Contact Person',
+                avatarInitials: initials,
+              } as ContactPerson;
+            }),
+          );
+        }
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load profile data.');
+      }
+    };
+
+    void fetchProfile();
+  }, [member.address, member.companyName, member.email, member.tinNumber, updateContacts, updateMember]);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [field]: e.target.value }));
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     await new Promise((r) => setTimeout(r, 800));
     updateMember(form);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMessage('Please fill in all password fields.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage('New password and confirmation do not match.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordMessage('New password must be at least 8 characters.');
+      return;
+    }
+
+    try {
+      setPasswordMessage(null);
+      setPasswordSaving(true);
+      await api.post('/auth/change-password', {
+        email: member.email,
+        oldPassword: currentPassword,
+        newPassword,
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordMessage('Password updated successfully.');
+    } catch (changeError) {
+      setPasswordMessage(changeError instanceof Error ? changeError.message : 'Failed to update password.');
+    } finally {
+      setPasswordSaving(false);
+    }
   };
 
   const handleDeleteContact = (id: string) => {
@@ -84,6 +182,11 @@ export const ProfilePage: React.FC = () => {
           <h2 className="text-[22px] font-bold leading-tight text-gray-900">Your company Profile</h2>
           <p className="mt-2.5 text-sm text-gray-400">Manage your organization's public information, contact details, and account settings.</p>
         </div>
+        {error ? (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </div>
+        ) : null}
 
         <section className="mb-8 overflow-hidden rounded-sm border border-gray-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 px-4 sm:px-6 py-5">
@@ -243,13 +346,26 @@ export const ProfilePage: React.FC = () => {
                   />
                 </div>
                 <div className="flex justify-start sm:justify-end">
-                  <button className="flex items-center gap-2 rounded-sm border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300">
+                  <button
+                    onClick={() => void handleChangePassword()}
+                    disabled={passwordSaving}
+                    className="flex items-center gap-2 rounded-sm border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 disabled:opacity-60"
+                  >
                     <svg className="h-3.5 w-3.5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                     </svg>
-                    Update Password
+                    {passwordSaving ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
+                {passwordMessage ? (
+                  <p
+                    className={`text-xs ${
+                      passwordMessage.toLowerCase().includes('successfully') ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {passwordMessage}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
