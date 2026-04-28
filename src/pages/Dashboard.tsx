@@ -2,31 +2,77 @@ import {
   Users, UserCheck, UserX, DollarSign,
   Filter, Download, Mail, Calendar, Activity
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Legend,
 } from "recharts";
+import { api } from "../lib/api";
 
-// ─── Data ───────────────────────────────────────────────────────────────────
-const revenueData = [
-  { month: "Jan", revenue: 32000 },
-  { month: "Feb", revenue: 41000 },
-  { month: "Mar", revenue: 37000 },
-  { month: "Apr", revenue: 48000 },
-  { month: "May", revenue: 45000 },
-  { month: "Jun", revenue: 62000 },
-  { month: "Jul", revenue: 57000 },
-];
+type DashboardSummary = {
+  totalMembers: number;
+  activeMembers: number;
+  totalPartners: number;
+  requestedServices: number;
+  deliveredServices: number;
+  highPriorityPending: number;
+  deliveryRate: number;
+  totalClusters: number;
+  totalSubclusters: number;
+};
 
-const membershipData = [
-  { month: "Jan", new: 48, renewed: 132 },
-  { month: "Feb", new: 55, renewed: 138 },
-  { month: "Mar", new: 60, renewed: 125 },
-  { month: "Apr", new: 52, renewed: 145 },
-  { month: "May", new: 70, renewed: 155 },
-  { month: "Jun", new: 65, renewed: 172 },
-  { month: "Jul", new: 80, renewed: 180 },
-];
+type MembershipTier = {
+  tierId: number;
+  tierName: string;
+  membersCount: number;
+};
+
+type DashboardAnalyticsResponse = {
+  success: boolean;
+  data: {
+    summary: DashboardSummary;
+    membershipByTier: MembershipTier[];
+  };
+};
+
+type RequestsByMonth = {
+  month: string;
+  count: number;
+};
+
+type ServiceRequestsAnalyticsResponse = {
+  success: boolean;
+  data: {
+    statusBreakdown: unknown[];
+    topCategories: unknown[];
+    averageDeliveryDays: number;
+    requestsLastSixMonths: RequestsByMonth[];
+  };
+};
+
+type PartnersAnalyticsResponse = {
+  success: boolean;
+  data: {
+    totalsByStatus: {
+      ongoing: number;
+      incoming: number;
+      completed: number;
+    };
+    partnersLastSixMonths: RequestsByMonth[];
+  };
+};
+
+const emptySummary: DashboardSummary = {
+  totalMembers: 0,
+  activeMembers: 0,
+  totalPartners: 0,
+  requestedServices: 0,
+  deliveredServices: 0,
+  highPriorityPending: 0,
+  deliveryRate: 0,
+  totalClusters: 0,
+  totalSubclusters: 0,
+};
 
 type ActivityItem = {
   id: number;
@@ -46,13 +92,6 @@ const activities: ActivityItem[] = [
   { id: 104, company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
   { id: 105, company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
 ];
-
-const stats = {
-  totalOrganizations: "2,845",
-  activeMembers: "2,103",
-  inactiveMembers: "42",
-  renewalDue: "9",
-};
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const statusStyles = {
@@ -99,7 +138,7 @@ function StatCard({
 }
 
 // ─── Custom Tooltips ─────────────────────────────────────────────────────────
-function RevenueTooltip({
+function CountTooltip({
   active,
   payload,
   label,
@@ -112,7 +151,7 @@ function RevenueTooltip({
     return (
       <div className="bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-sm">
         <p className="font-semibold text-gray-700">{label}</p>
-        <p className="text-yellow-600">${payload[0].value.toLocaleString()}</p>
+        <p className="text-yellow-600">{payload[0].value.toLocaleString()}</p>
       </div>
     );
   }
@@ -143,6 +182,66 @@ function MemberTooltip({
 
 // ─── Dashboard Page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [requestTrend, setRequestTrend] = useState<RequestsByMonth[]>([]);
+  const [partnerTrend, setPartnerTrend] = useState<RequestsByMonth[]>([]);
+  const [averageDeliveryDays, setAverageDeliveryDays] = useState(0);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setIsLoadingAnalytics(true);
+      setAnalyticsError(null);
+
+      try {
+        const [dashboardRes, serviceRequestsRes, partnersRes] = await Promise.all([
+          api.get<DashboardAnalyticsResponse>("/analytics/dashboard"),
+          api.get<ServiceRequestsAnalyticsResponse>("/analytics/service-requests"),
+          api.get<PartnersAnalyticsResponse>("/analytics/partners"),
+        ]);
+
+        setSummary(dashboardRes.data.data.summary);
+        setRequestTrend(serviceRequestsRes.data.data.requestsLastSixMonths ?? []);
+        setPartnerTrend(partnersRes.data.data.partnersLastSixMonths ?? []);
+        setAverageDeliveryDays(serviceRequestsRes.data.data.averageDeliveryDays ?? 0);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load analytics data.";
+        setAnalyticsError(message);
+      } finally {
+        setIsLoadingAnalytics(false);
+      }
+    };
+
+    void fetchAnalytics();
+  }, []);
+
+  const inactiveMembers = useMemo(
+    () => Math.max(summary.totalMembers - summary.activeMembers, 0),
+    [summary.activeMembers, summary.totalMembers],
+  );
+
+  const serviceRequestChartData = useMemo(
+    () =>
+      requestTrend.map((item) => ({
+        month: item.month.slice(5),
+        requests: item.count,
+      })),
+    [requestTrend],
+  );
+
+  const partnersChartData = useMemo(
+    () =>
+      partnerTrend.map((item) => ({
+        month: item.month.slice(5),
+        partners: item.count,
+      })),
+    [partnerTrend],
+  );
+
   return (
     <div className="space-y-6">
 
@@ -184,39 +283,47 @@ export default function Dashboard() {
         <StatCard
           icon={<Users size={22} className="text-blue-600" />}
           iconBg="bg-blue-100"
-          title="Total Organizations"
-          value={stats.totalOrganizations}
+          title="Total Members"
+          value={summary.totalMembers.toLocaleString()}
         />
         <StatCard
           icon={<UserCheck size={22} className="text-green-600" />}
           iconBg="bg-green-100"
           title="Active Members"
-          value={stats.activeMembers}
+          value={summary.activeMembers.toLocaleString()}
         />
         <StatCard
           icon={<UserX size={22} className="text-red-500" />}
           iconBg="bg-red-100"
           title="Inactive Members"
-          value={stats.inactiveMembers}
+          value={inactiveMembers.toLocaleString()}
         />
         <StatCard
           icon={<DollarSign size={22} className="text-yellow-600" />}
           iconBg="bg-yellow-100"
-          title="Renewal Due"
-          value={stats.renewalDue}
+          title="Total Partners"
+          value={summary.totalPartners.toLocaleString()}
         />
       </div>
+
+      {analyticsError ? (
+        <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 text-sm">
+          Could not load analytics: {analyticsError}
+        </div>
+      ) : null}
 
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Revenue Bar Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Revenue Growth</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Monthly revenue collection (YTD)</p>
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Service Requests</h3>
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">
+            Last 6 months ({averageDeliveryDays} avg delivery days)
+          </p>
           <div className="-ml-2 sm:-ml-1">
           <ResponsiveContainer width="100%" height={170}>
             <BarChart
-              data={revenueData}
+              data={serviceRequestChartData}
               barSize={24}
               margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
             >
@@ -231,11 +338,10 @@ export default function Dashboard() {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickFormatter={(v) => `$${v / 1000}k`}
                 width={34}
               />
-              <Tooltip content={<RevenueTooltip />} cursor={{ fill: "#f9f9f9" }} />
-              <Bar dataKey="revenue" fill="#EAB308" radius={[4, 4, 0, 0]} />
+              <Tooltip content={<CountTooltip />} cursor={{ fill: "#f9f9f9" }} />
+              <Bar dataKey="requests" fill="#EAB308" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
           </div>
@@ -243,19 +349,15 @@ export default function Dashboard() {
 
         {/* Membership Area Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Membership Trends</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">New vs Renewed members</p>
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Partner Growth</h3>
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in last 6 months</p>
           <div className="-ml-2 sm:-ml-1">
           <ResponsiveContainer width="100%" height={170}>
             <AreaChart
-              data={membershipData}
+              data={partnersChartData}
               margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
             >
               <defs>
-                <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
-                </linearGradient>
                 <linearGradient id="colorRenewed" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
@@ -280,17 +382,20 @@ export default function Dashboard() {
                 iconSize={8}
                 formatter={(v) => (
                   <span className="text-xs text-gray-600">
-                    {v === "new" ? "New Members" : "Renewed"}
+                    {v === "partners" ? "Partners" : v}
                   </span>
                 )}
               />
-              <Area type="monotone" dataKey="renewed" name="renewed" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
-              <Area type="monotone" dataKey="new"     name="new"     stroke="#3b82f6" strokeWidth={2} fill="url(#colorNew)" />
+              <Area type="monotone" dataKey="partners" name="partners" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
             </AreaChart>
           </ResponsiveContainer>
           </div>
         </div>
       </div>
+
+      {isLoadingAnalytics ? (
+        <p className="text-sm text-gray-500">Loading analytics...</p>
+      ) : null}
 
       {/* Recent Activity */}
       <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
