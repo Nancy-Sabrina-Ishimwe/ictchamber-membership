@@ -75,7 +75,7 @@ const emptySummary: DashboardSummary = {
 };
 
 type ActivityItem = {
-  id: number;
+  id: string;
   company: string;
   initials: string;
   color: string;
@@ -86,12 +86,50 @@ type ActivityItem = {
 };
 
 const activities: ActivityItem[] = [
-  { id: 101, company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     amount: "$500", status: "Success" },
-  { id: 102, company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     amount: "-",    status: "Pending" },
-  { id: 103, company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", amount: "$250", status: "Failed"  },
-  { id: 104, company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
-  { id: 105, company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
+  { id: "101", company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     amount: "$500", status: "Success" },
+  { id: "102", company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     amount: "-",    status: "Pending" },
+  { id: "103", company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", amount: "$250", status: "Failed"  },
+  { id: "104", company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
+  { id: "105", company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
 ];
+
+type RecentActivityResponse = {
+  success: boolean;
+  count: number;
+  data: Array<{
+    type: string;
+    date: string;
+    title: string;
+    description: string;
+    metadata?: Record<string, unknown>;
+  }>;
+};
+
+const activityStatusByType: Record<string, ActivityStatus> = {
+  MEMBERSHIP_SUBSCRIPTION_UPDATED: "Success",
+  PARTNER_PROGRAM_UPDATED: "Info",
+};
+
+const activityColorByType: Record<string, string> = {
+  MEMBERSHIP_SUBSCRIPTION_UPDATED: "#1a1a2e",
+  PARTNER_PROGRAM_UPDATED: "#2196f3",
+};
+
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "NA";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+}
+
+function formatActivityDate(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const statusStyles = {
@@ -186,6 +224,7 @@ export default function Dashboard() {
   const [requestTrend, setRequestTrend] = useState<RequestsByMonth[]>([]);
   const [partnerTrend, setPartnerTrend] = useState<RequestsByMonth[]>([]);
   const [averageDeliveryDays, setAverageDeliveryDays] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<ActivityItem[]>(activities);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
@@ -195,22 +234,35 @@ export default function Dashboard() {
       setAnalyticsError(null);
 
       try {
-        const [dashboardRes, serviceRequestsRes, partnersRes] = await Promise.all([
+        const [dashboardRes, serviceRequestsRes, partnersRes, recentActivityRes] = await Promise.all([
           api.get<DashboardAnalyticsResponse>("/analytics/dashboard"),
           api.get<ServiceRequestsAnalyticsResponse>("/analytics/service-requests"),
           api.get<PartnersAnalyticsResponse>("/analytics/partners"),
+          api.get<RecentActivityResponse>("/analytics/recent-activity"),
         ]);
 
         setSummary(dashboardRes.data.data.summary);
         setRequestTrend(serviceRequestsRes.data.data.requestsLastSixMonths ?? []);
         setPartnerTrend(partnersRes.data.data.partnersLastSixMonths ?? []);
         setAverageDeliveryDays(serviceRequestsRes.data.data.averageDeliveryDays ?? 0);
+        const mappedActivities: ActivityItem[] = (recentActivityRes.data.data ?? []).map((item, index) => ({
+          id: `${item.date}-${index}`,
+          company: item.title,
+          initials: getInitials(item.title),
+          color: activityColorByType[item.type] ?? "#6b7280",
+          action: item.description,
+          date: formatActivityDate(item.date),
+          amount: "-",
+          status: activityStatusByType[item.type] ?? "Info",
+        }));
+        setRecentActivities(mappedActivities.length > 0 ? mappedActivities : activities);
       } catch (error) {
         const message =
           error instanceof Error
             ? error.message
             : "Failed to load analytics data.";
         setAnalyticsError(message);
+        setRecentActivities(activities);
       } finally {
         setIsLoadingAnalytics(false);
       }
@@ -406,7 +458,7 @@ export default function Dashboard() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {activities.map((item) => (
+          {recentActivities.map((item) => (
             <div key={item.id} className="rounded-md border border-gray-100 p-3">
               <div className="flex items-center gap-3 mb-2">
                 <div
@@ -444,7 +496,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {activities.map((item) => (
+              {recentActivities.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
