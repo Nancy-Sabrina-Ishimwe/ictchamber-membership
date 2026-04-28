@@ -2,34 +2,80 @@ import {
   Users, UserCheck, UserX, DollarSign,
   Filter, Download, Mail, Calendar, Activity
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Legend,
 } from "recharts";
+import { api } from "../lib/api";
 
-// ─── Data ───────────────────────────────────────────────────────────────────
-const revenueData = [
-  { month: "Jan", revenue: 32000 },
-  { month: "Feb", revenue: 41000 },
-  { month: "Mar", revenue: 37000 },
-  { month: "Apr", revenue: 48000 },
-  { month: "May", revenue: 45000 },
-  { month: "Jun", revenue: 62000 },
-  { month: "Jul", revenue: 57000 },
-];
+type DashboardSummary = {
+  totalMembers: number;
+  activeMembers: number;
+  totalPartners: number;
+  requestedServices: number;
+  deliveredServices: number;
+  highPriorityPending: number;
+  deliveryRate: number;
+  totalClusters: number;
+  totalSubclusters: number;
+};
 
-const membershipData = [
-  { month: "Jan", new: 48, renewed: 132 },
-  { month: "Feb", new: 55, renewed: 138 },
-  { month: "Mar", new: 60, renewed: 125 },
-  { month: "Apr", new: 52, renewed: 145 },
-  { month: "May", new: 70, renewed: 155 },
-  { month: "Jun", new: 65, renewed: 172 },
-  { month: "Jul", new: 80, renewed: 180 },
-];
+type MembershipTier = {
+  tierId: number;
+  tierName: string;
+  membersCount: number;
+};
+
+type DashboardAnalyticsResponse = {
+  success: boolean;
+  data: {
+    summary: DashboardSummary;
+    membershipByTier: MembershipTier[];
+  };
+};
+
+type RequestsByMonth = {
+  month: string;
+  count: number;
+};
+
+type ServiceRequestsAnalyticsResponse = {
+  success: boolean;
+  data: {
+    statusBreakdown: unknown[];
+    topCategories: unknown[];
+    averageDeliveryDays: number;
+    requestsLastSixMonths: RequestsByMonth[];
+  };
+};
+
+type PartnersAnalyticsResponse = {
+  success: boolean;
+  data: {
+    totalsByStatus: {
+      ongoing: number;
+      incoming: number;
+      completed: number;
+    };
+    partnersLastSixMonths: RequestsByMonth[];
+  };
+};
+
+const emptySummary: DashboardSummary = {
+  totalMembers: 0,
+  activeMembers: 0,
+  totalPartners: 0,
+  requestedServices: 0,
+  deliveredServices: 0,
+  highPriorityPending: 0,
+  deliveryRate: 0,
+  totalClusters: 0,
+  totalSubclusters: 0,
+};
 
 type ActivityItem = {
-  id: number;
+  id: string;
   company: string;
   initials: string;
   color: string;
@@ -40,19 +86,114 @@ type ActivityItem = {
 };
 
 const activities: ActivityItem[] = [
-  { id: 101, company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     amount: "$500", status: "Success" },
-  { id: 102, company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     amount: "-",    status: "Pending" },
-  { id: 103, company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", amount: "$250", status: "Failed"  },
-  { id: 104, company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
-  { id: 105, company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
+  { id: "101", company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     amount: "$500", status: "Success" },
+  { id: "102", company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     amount: "-",    status: "Pending" },
+  { id: "103", company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", amount: "$250", status: "Failed"  },
+  { id: "104", company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
+  { id: "105", company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
 ];
 
-const stats = {
-  totalOrganizations: "2,845",
-  activeMembers: "2,103",
-  inactiveMembers: "42",
-  renewalDue: "9",
+type RecentActivityResponse = {
+  success: boolean;
+  count: number;
+  data: Array<{
+    type: string;
+    date: string;
+    title: string;
+    description: string;
+    metadata?: Record<string, unknown>;
+  }>;
 };
+
+const activityStatusByType: Record<string, ActivityStatus> = {
+  MEMBERSHIP_SUBSCRIPTION_UPDATED: "Success",
+  PARTNER_PROGRAM_UPDATED: "Info",
+};
+
+const activityColorByType: Record<string, string> = {
+  MEMBERSHIP_SUBSCRIPTION_UPDATED: "#1a1a2e",
+  PARTNER_PROGRAM_UPDATED: "#2196f3",
+};
+
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "NA";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+}
+
+function formatActivityDate(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+// ─── Skeleton components ─────────────────────────────────────────────────────
+function StatCardSkeleton() {
+  return (
+    <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex flex-col gap-3 animate-pulse">
+      <div className="w-10 h-10 rounded-md bg-gray-200" />
+      <div className="space-y-2">
+        <div className="h-3 bg-gray-200 rounded w-20" />
+        <div className="h-7 bg-gray-200 rounded w-14" />
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="animate-pulse pt-1">
+      <div className="h-4 bg-gray-200 rounded w-32 mb-1.5" />
+      <div className="h-3 bg-gray-200 rounded w-48 mb-4" />
+      <div className="h-[170px] bg-gray-100 rounded-md" />
+    </div>
+  );
+}
+
+function ActivityCardSkeleton() {
+  return (
+    <div className="rounded-md border border-gray-100 p-3 animate-pulse">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3.5 bg-gray-200 rounded w-32" />
+          <div className="h-3 bg-gray-200 rounded w-20" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1.5">
+          <div className="h-3 bg-gray-200 rounded w-28" />
+          <div className="h-3 bg-gray-200 rounded w-20" />
+        </div>
+        <div className="h-5 bg-gray-200 rounded-full w-16" />
+      </div>
+    </div>
+  );
+}
+
+function ActivityRowSkeleton() {
+  return (
+    <tr className="animate-pulse">
+      <td className="py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 bg-gray-200 rounded w-32" />
+            <div className="h-3 bg-gray-200 rounded w-20" />
+          </div>
+        </div>
+      </td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-28" /></td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-24" /></td>
+      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-14" /></td>
+      <td className="py-4 text-right"><div className="h-5 bg-gray-200 rounded-full w-16 ml-auto" /></td>
+    </tr>
+  );
+}
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const statusStyles = {
@@ -99,7 +240,7 @@ function StatCard({
 }
 
 // ─── Custom Tooltips ─────────────────────────────────────────────────────────
-function RevenueTooltip({
+function CountTooltip({
   active,
   payload,
   label,
@@ -112,7 +253,7 @@ function RevenueTooltip({
     return (
       <div className="bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-sm">
         <p className="font-semibold text-gray-700">{label}</p>
-        <p className="text-yellow-600">${payload[0].value.toLocaleString()}</p>
+        <p className="text-yellow-600">{payload[0].value.toLocaleString()}</p>
       </div>
     );
   }
@@ -143,6 +284,80 @@ function MemberTooltip({
 
 // ─── Dashboard Page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
+  const [requestTrend, setRequestTrend] = useState<RequestsByMonth[]>([]);
+  const [partnerTrend, setPartnerTrend] = useState<RequestsByMonth[]>([]);
+  const [averageDeliveryDays, setAverageDeliveryDays] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<ActivityItem[]>(activities);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setIsLoadingAnalytics(true);
+      setAnalyticsError(null);
+
+      try {
+        const [dashboardRes, serviceRequestsRes, partnersRes, recentActivityRes] = await Promise.all([
+          api.get<DashboardAnalyticsResponse>("/analytics/dashboard"),
+          api.get<ServiceRequestsAnalyticsResponse>("/analytics/service-requests"),
+          api.get<PartnersAnalyticsResponse>("/analytics/partners"),
+          api.get<RecentActivityResponse>("/analytics/recent-activity"),
+        ]);
+
+        setSummary(dashboardRes.data.data.summary);
+        setRequestTrend(serviceRequestsRes.data.data.requestsLastSixMonths ?? []);
+        setPartnerTrend(partnersRes.data.data.partnersLastSixMonths ?? []);
+        setAverageDeliveryDays(serviceRequestsRes.data.data.averageDeliveryDays ?? 0);
+        const mappedActivities: ActivityItem[] = (recentActivityRes.data.data ?? []).map((item, index) => ({
+          id: `${item.date}-${index}`,
+          company: item.title,
+          initials: getInitials(item.title),
+          color: activityColorByType[item.type] ?? "#6b7280",
+          action: item.description,
+          date: formatActivityDate(item.date),
+          amount: "-",
+          status: activityStatusByType[item.type] ?? "Info",
+        }));
+        setRecentActivities(mappedActivities.length > 0 ? mappedActivities : activities);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load analytics data.";
+        setAnalyticsError(message);
+        setRecentActivities(activities);
+      } finally {
+        setIsLoadingAnalytics(false);
+      }
+    };
+
+    void fetchAnalytics();
+  }, []);
+
+  const inactiveMembers = useMemo(
+    () => Math.max(summary.totalMembers - summary.activeMembers, 0),
+    [summary.activeMembers, summary.totalMembers],
+  );
+
+  const serviceRequestChartData = useMemo(
+    () =>
+      requestTrend.map((item) => ({
+        month: item.month.slice(5),
+        requests: item.count,
+      })),
+    [requestTrend],
+  );
+
+  const partnersChartData = useMemo(
+    () =>
+      partnerTrend.map((item) => ({
+        month: item.month.slice(5),
+        partners: item.count,
+      })),
+    [partnerTrend],
+  );
+
   return (
     <div className="space-y-6">
 
@@ -181,114 +396,105 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          icon={<Users size={22} className="text-blue-600" />}
-          iconBg="bg-blue-100"
-          title="Total Organizations"
-          value={stats.totalOrganizations}
-        />
-        <StatCard
-          icon={<UserCheck size={22} className="text-green-600" />}
-          iconBg="bg-green-100"
-          title="Active Members"
-          value={stats.activeMembers}
-        />
-        <StatCard
-          icon={<UserX size={22} className="text-red-500" />}
-          iconBg="bg-red-100"
-          title="Inactive Members"
-          value={stats.inactiveMembers}
-        />
-        <StatCard
-          icon={<DollarSign size={22} className="text-yellow-600" />}
-          iconBg="bg-yellow-100"
-          title="Renewal Due"
-          value={stats.renewalDue}
-        />
+        {isLoadingAnalytics ? (
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+        ) : (
+          <>
+            <StatCard
+              icon={<Users size={22} className="text-blue-600" />}
+              iconBg="bg-blue-100"
+              title="Total Members"
+              value={summary.totalMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<UserCheck size={22} className="text-green-600" />}
+              iconBg="bg-green-100"
+              title="Active Members"
+              value={summary.activeMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<UserX size={22} className="text-red-500" />}
+              iconBg="bg-red-100"
+              title="Inactive Members"
+              value={inactiveMembers.toLocaleString()}
+            />
+            <StatCard
+              icon={<DollarSign size={22} className="text-yellow-600" />}
+              iconBg="bg-yellow-100"
+              title="Total Partners"
+              value={summary.totalPartners.toLocaleString()}
+            />
+          </>
+        )}
       </div>
+
+      {analyticsError ? (
+        <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 text-sm">
+          Could not load analytics: {analyticsError}
+        </div>
+      ) : null}
 
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        {/* Revenue Bar Chart */}
+        {/* Service Requests Bar Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Revenue Growth</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Monthly revenue collection (YTD)</p>
-          <div className="-ml-2 sm:-ml-1">
-          <ResponsiveContainer width="100%" height={170}>
-            <BarChart
-              data={revenueData}
-              barSize={24}
-              margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickFormatter={(v) => `$${v / 1000}k`}
-                width={34}
-              />
-              <Tooltip content={<RevenueTooltip />} cursor={{ fill: "#f9f9f9" }} />
-              <Bar dataKey="revenue" fill="#EAB308" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          </div>
+          {isLoadingAnalytics ? <ChartSkeleton /> : (
+            <>
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base">Service Requests</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">
+                Last 6 months ({averageDeliveryDays} avg delivery days)
+              </p>
+              <div className="-ml-2 sm:-ml-1">
+                <ResponsiveContainer width="100%" height={170}>
+                  <BarChart
+                    data={serviceRequestChartData}
+                    barSize={24}
+                    margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9ca3af" }} width={34} />
+                    <Tooltip content={<CountTooltip />} cursor={{ fill: "#f9f9f9" }} />
+                    <Bar dataKey="requests" fill="#EAB308" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Membership Area Chart */}
+        {/* Partner Growth Area Chart */}
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">Membership Trends</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">New vs Renewed members</p>
-          <div className="-ml-2 sm:-ml-1">
-          <ResponsiveContainer width="100%" height={170}>
-            <AreaChart
-              data={membershipData}
-              margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
-                </linearGradient>
-                <linearGradient id="colorRenewed" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                width={30}
-              />
-              <Tooltip content={<MemberTooltip />} />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                formatter={(v) => (
-                  <span className="text-xs text-gray-600">
-                    {v === "new" ? "New Members" : "Renewed"}
-                  </span>
-                )}
-              />
-              <Area type="monotone" dataKey="renewed" name="renewed" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
-              <Area type="monotone" dataKey="new"     name="new"     stroke="#3b82f6" strokeWidth={2} fill="url(#colorNew)" />
-            </AreaChart>
-          </ResponsiveContainer>
-          </div>
+          {isLoadingAnalytics ? <ChartSkeleton /> : (
+            <>
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base">Partner Growth</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in last 6 months</p>
+              <div className="-ml-2 sm:-ml-1">
+                <ResponsiveContainer width="100%" height={170}>
+                  <AreaChart data={partnersChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRenewed" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#9ca3af" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9ca3af" }} width={30} />
+                    <Tooltip content={<MemberTooltip />} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      formatter={(v) => (
+                        <span className="text-xs text-gray-600">{v === "partners" ? "Partners" : v}</span>
+                      )}
+                    />
+                    <Area type="monotone" dataKey="partners" name="partners" stroke="#22c55e" strokeWidth={2} fill="url(#colorRenewed)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -301,32 +507,36 @@ export default function Dashboard() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {activities.map((item) => (
-            <div key={item.id} className="rounded-md border border-gray-100 p-3">
-              <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor: item.color }}
-                >
-                  {item.initials}
+          {isLoadingAnalytics
+            ? Array.from({ length: 3 }).map((_, i) => <ActivityCardSkeleton key={i} />)
+            : recentActivities.map((item) => (
+                <div key={item.id} className="rounded-md border border-gray-100 p-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    >
+                      {item.initials}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-xs sm:text-sm text-gray-900">{item.company}</p>
+                      <p className="text-xs text-gray-400">ID: #{item.id}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-600">{item.action}</p>
+                      <p className="text-xs text-gray-400">{item.date}</p>
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-xs sm:text-sm text-gray-900">{item.company}</p>
-                  <p className="text-xs text-gray-400">ID: #{item.id}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600">{item.action}</p>
-                  <p className="text-xs text-gray-400">{item.date}</p>
-                </div>
-                <StatusBadge status={item.status} />
-              </div>
-            </div>
-          ))}
+              ))
+          }
         </div>
 
         {/* Desktop table */}
+
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm min-w-[680px]">
             <thead>
@@ -339,7 +549,9 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {activities.map((item) => (
+              {isLoadingAnalytics
+                ? Array.from({ length: 4 }).map((_, i) => <ActivityRowSkeleton key={i} />)
+                : recentActivities.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
@@ -362,7 +574,8 @@ export default function Dashboard() {
                     <StatusBadge status={item.status} />
                   </td>
                 </tr>
-              ))}
+              ))
+              }
             </tbody>
           </table>
         </div>

@@ -1,6 +1,7 @@
 import { Search, Filter, ChevronDown, MoreVertical, Eye, CheckCircle2, XCircle, Clock3 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 
 type Member = {
   id: string;
@@ -15,18 +16,24 @@ type Member = {
   lastPaymentDate: string;
 };
 
-const members: Member[] = [
-  { id: "ICT2024PN924", name: "Hviewtech group",            cluster: "IT Hardware and Solutions",          website: "www.hviewtech.com",          category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "15 Jan 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "05 Jan 2024" },
-  { id: "ICT2024NA055", name: "1000 hills traveler",        cluster: "Tourism & Hospitality",              website: "www.bookly.africa",           category: "Associated",                tier: "Gold",     status: "Active",   joinDate: "20 Mar 2024", lastPaymentAmount: "600,000 RWF",   lastPaymentDate: "10 Feb 2024" },
-  { id: "ICT2024PS233", name: "1000hills animation studio", cluster: "Media Tech",                         website: "thousandhillsanima.wix",      category: "Commercial Company",        tier: "Silver",   status: "Inactive", joinDate: "10 May 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "15 May 2022" },
-  { id: "ICT2024CM756", name: "4netafrica /isp",            cluster: "Infrastructure and Connectivity Services", website: "www.4netafrica.com",    category: "Program Partner",           tier: "Bronze",   status: "Active",   joinDate: "01 Sep 2024", lastPaymentAmount: "100,000 RWF",   lastPaymentDate: "01 Sep 2023" },
-  { id: "ICT2024TB775", name: "Ab global consultants",      cluster: "IT Hardware and Solutions",          website: "www.linkedin.com/comp",       category: "Individual Professional",   tier: "Bronze",   status: "Pending",  joinDate: "25 Oct 2024", lastPaymentAmount: "100,000 RWF",   lastPaymentDate: "-" },
-  { id: "ICT2024PB644", name: "AC Group",                   cluster: "IT Hardware and Solutions",          website: "www.acgroup.rw",              category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "12 Feb 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "20 Jan 2024" },
-  { id: "ICT2024MM464", name: "Academic bridge",            cluster: "EdTech",                             website: "academicbridge.xyz",          category: "Program",                   tier: "Silver",   status: "Active",   joinDate: "05 Jul 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "05 Jul 2023" },
-  { id: "ICT2024MO848", name: "Adfinance",                  cluster: "FinTech",                            website: "www.adfinance.co",            category: "Multiple Business",         tier: "Gold",     status: "Inactive", joinDate: "18 Aug 2024", lastPaymentAmount: "600,000 RWF",   lastPaymentDate: "20 Aug 2021" },
-  { id: "ICT2024YK637", name: "Aegis consult",              cluster: "IT Hardware and Solutions",          website: "www.aegistrust.org",          category: "Commercial Company",        tier: "Silver",   status: "Active",   joinDate: "22 Nov 2024", lastPaymentAmount: "300,000 RWF",   lastPaymentDate: "22 Nov 2023" },
-  { id: "ICT2024KB405", name: "Africa Blockchain Institute",cluster: "eCommerce and eServices",            website: "africablockchain.institut",   category: "Commercial Company",        tier: "Platinum", status: "Active",   joinDate: "14 Apr 2024", lastPaymentAmount: "1,000,000 RWF", lastPaymentDate: "14 Apr 2023" },
-];
+type MemberApiItem = {
+  id: number;
+  companyName: string;
+  logoUrl: string | null;
+  role: string;
+  active: boolean;
+  cluster?: { clusterName: string } | null;
+  selectedTier?: { tierName: string } | null;
+  subscriptions?: Array<{
+    startDate: string;
+  }>;
+};
+
+type MembersApiResponse = {
+  success: boolean;
+  count: number;
+  data: MemberApiItem[];
+};
 
 const tierStyles = {
   Platinum: "bg-gray-900 text-white",
@@ -68,22 +75,98 @@ function StatusBadge({ status }: { status: Member["status"] }) {
   );
 }
 
-function SelectFilter({ label }: { label: string }) {
+function SelectFilter({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="relative">
-      <select className="appearance-none w-full pl-3 pr-8 py-2 border border-gray-200 rounded-md text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-gray-300">
-        <option>{label}</option>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="appearance-none w-full pl-3 pr-8 py-2 border border-gray-200 rounded-md text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-gray-300"
+      >
+        <option value="">{label}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
       </select>
       <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
     </div>
   );
 }
 
+const normalizeTier = (tierName?: string | null): Member["tier"] => {
+  const normalized = (tierName ?? "").trim().toLowerCase();
+  if (normalized === "platinum") return "Platinum";
+  if (normalized === "gold") return "Gold";
+  if (normalized === "silver") return "Silver";
+  return "Bronze";
+};
+
+const formatDate = (rawDate?: string) => {
+  if (!rawDate) return "-";
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+const mapMemberFromApi = (member: MemberApiItem): Member => ({
+  id: String(member.id),
+  name: member.companyName,
+  cluster: member.cluster?.clusterName ?? "-",
+  website: member.logoUrl ?? "-",
+  category: member.role,
+  tier: normalizeTier(member.selectedTier?.tierName),
+  status: member.active ? "Active" : "Inactive",
+  joinDate: formatDate(member.subscriptions?.[0]?.startDate),
+  lastPaymentAmount: "-",
+  lastPaymentDate: "-",
+});
+
 export default function Members() {
   const navigate = useNavigate();
   const [openActionFor, setOpenActionFor] = useState<string | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [clusterFilter, setClusterFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [tierFilter, setTierFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const pageSize = 10;
 
   useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await api.get<MembersApiResponse>("/members");
+        setMembers((response.data.data ?? []).map(mapMemberFromApi));
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : "Failed to load members.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchMembers();
+
     const handleDocumentClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest("[data-member-action-menu]")) {
@@ -94,6 +177,75 @@ export default function Members() {
     document.addEventListener("click", handleDocumentClick);
     return () => document.removeEventListener("click", handleDocumentClick);
   }, []);
+
+  const activeMembersCount = members.filter((member) => member.status === "Active").length;
+  const clusterOptions = useMemo(
+    () => Array.from(new Set(members.map((member) => member.cluster).filter((cluster) => cluster !== "-"))).sort(),
+    [members],
+  );
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(members.map((member) => member.category).filter(Boolean))).sort(),
+    [members],
+  );
+
+  const filteredMembers = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return members.filter((member) => {
+      if (clusterFilter && member.cluster !== clusterFilter) return false;
+      if (categoryFilter && member.category !== categoryFilter) return false;
+      if (statusFilter && member.status !== statusFilter) return false;
+      if (tierFilter && member.tier !== tierFilter) return false;
+      if (!normalizedSearch) return true;
+
+      const searchable = [member.id, member.name, member.website, member.category, member.cluster].join(" ").toLowerCase();
+      return searchable.includes(normalizedSearch);
+    });
+  }, [members, searchTerm, clusterFilter, categoryFilter, statusFilter, tierFilter]);
+
+  const totalEntries = filteredMembers.length;
+  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize));
+  const currentPageSafe = Math.min(currentPage, totalPages);
+  const startIndex = totalEntries === 0 ? 0 : (currentPageSafe - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalEntries);
+  const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, clusterFilter, categoryFilter, statusFilter, tierFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const toggleMemberStatus = async (memberId: string) => {
+    try {
+      await api.patch(`/members/${memberId}/toggle-active`);
+      setMembers((previousMembers) =>
+        previousMembers.map((member) => {
+          if (member.id !== memberId) return member;
+          return {
+            ...member,
+            status: member.status === "Active" ? "Inactive" : "Active",
+          };
+        }),
+      );
+      setOpenActionFor(null);
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : "Failed to toggle member status.");
+    }
+  };
+
+  const viewMemberProfile = async (memberId: string) => {
+    try {
+      await api.get(`/members/${memberId}`);
+      navigate(`/admin/members/${memberId}`);
+      setOpenActionFor(null);
+    } catch (viewError) {
+      setError(viewError instanceof Error ? viewError.message : "Failed to fetch member profile.");
+    }
+  };
 
   const renderStatusAction = (status: Member["status"]) => {
     if (status === "Inactive") {
@@ -116,13 +268,19 @@ export default function Members() {
         </div>
         <div className="flex items-center gap-2">
           <div className="px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs shadow-sm">
-            Total Active: <span className="font-bold text-green-600">342</span>
+            Total Active: <span className="font-bold text-green-600">{activeMembersCount}</span>
           </div>
           <button className="px-4 py-1.5 bg-yellow-400 hover:bg-yellow-300 transition-colors text-black rounded-md text-xs font-semibold">
             Registrations
           </button>
         </div>
       </div>
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       {/* Filters */}
       <div className="bg-white rounded-md border border-gray-200 shadow-sm p-3">
@@ -133,12 +291,19 @@ export default function Members() {
             <input
               placeholder="Search company, contact, or email..."
               className="outline-none text-xs w-full bg-transparent text-gray-700 placeholder-gray-400"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
-          <SelectFilter label="All Clusters" />
-          <SelectFilter label="All Categories" />
-          <SelectFilter label="All Statuses" />
-          <SelectFilter label="Any Tier" />
+          <SelectFilter label="All Clusters" value={clusterFilter} options={clusterOptions} onChange={setClusterFilter} />
+          <SelectFilter label="All Categories" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
+          <SelectFilter
+            label="All Statuses"
+            value={statusFilter}
+            options={["Active", "Inactive", "Pending"]}
+            onChange={setStatusFilter}
+          />
+          <SelectFilter label="Any Tier" value={tierFilter} options={["Platinum", "Gold", "Silver", "Bronze"]} onChange={setTierFilter} />
           <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md text-xs text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Filter size={13} /> More Filters
           </button>
@@ -150,7 +315,11 @@ export default function Members() {
 
         {/* Mobile cards */}
         <div className="lg:hidden divide-y divide-gray-100">
-          {members.map((m) => (
+          {isLoading ? <p className="p-3 text-xs text-gray-500">Loading members...</p> : null}
+          {!isLoading && paginatedMembers.length === 0 ? (
+            <p className="p-3 text-xs text-gray-500">No members match the selected filters.</p>
+          ) : null}
+          {paginatedMembers.map((m) => (
             <div key={m.id} className="p-3">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
@@ -176,7 +345,7 @@ export default function Members() {
                       <div className="absolute right-0 top-7 z-20 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
                         <button
                           type="button"
-                          onClick={() => navigate(`/admin/members/${m.id}`)}
+                          onClick={() => void viewMemberProfile(m.id)}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
                         >
                           <Eye size={12} />
@@ -186,6 +355,7 @@ export default function Members() {
                           <button
                             key={action}
                             type="button"
+                            onClick={() => void toggleMemberStatus(m.id)}
                             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
                           >
                             {action}
@@ -203,9 +373,11 @@ export default function Members() {
                 <div><p className="text-gray-400">Join Date</p><p className="text-gray-700">{m.joinDate}</p></div>
                 <div><p className="text-gray-400">Last Payment</p><p className="text-gray-700 font-medium">{m.lastPaymentAmount}</p><p className="text-[11px] text-gray-400">{m.lastPaymentDate}</p></div>
               </div>
-              <a className="mt-2 inline-block text-xs text-blue-600 underline break-all" href={`https://${m.website}`} target="_blank" rel="noreferrer">
-                {m.website}
-              </a>
+              {m.website !== "-" ? (
+                <a className="mt-2 inline-block text-xs text-blue-600 underline break-all" href={m.website} target="_blank" rel="noreferrer">
+                  {m.website}
+                </a>
+              ) : null}
             </div>
           ))}
         </div>
@@ -229,16 +401,34 @@ export default function Members() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {members.map((m) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-6 text-center text-xs text-gray-500">
+                    Loading members...
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoading && paginatedMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-6 text-center text-xs text-gray-500">
+                    No members match the selected filters.
+                  </td>
+                </tr>
+              ) : null}
+              {paginatedMembers.map((m) => (
                 <tr key={m.id} className="hover:bg-gray-50/60 transition-colors">
                   <td className="px-4 py-3"><input type="checkbox" className="rounded" /></td>
                   <td className="px-3 py-3 text-blue-600 font-medium cursor-pointer hover:underline">{m.id}</td>
                   <td className="px-3 py-3 font-semibold text-gray-800">{m.name}</td>
                   <td className="px-3 py-3 text-gray-500">{m.cluster}</td>
                   <td className="px-3 py-3">
-                    <a href={`https://${m.website}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate block max-w-[140px]">
-                      {m.website}
-                    </a>
+                    {m.website !== "-" ? (
+                      <a href={m.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate block max-w-[140px]">
+                        {m.website}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-gray-500">{m.category}</td>
                   <td className="px-3 py-3"><TierBadge tier={m.tier} /></td>
@@ -266,7 +456,7 @@ export default function Members() {
                         <div className="absolute right-0 top-8 z-20 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
                           <button
                             type="button"
-                            onClick={() => navigate(`/admin/members/${m.id}`)}
+                            onClick={() => void viewMemberProfile(m.id)}
                             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
                           >
                             <Eye size={12} />
@@ -276,6 +466,7 @@ export default function Members() {
                             <button
                               key={action}
                               type="button"
+                              onClick={() => void toggleMemberStatus(m.id)}
                               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
                             >
                               {action}
@@ -293,20 +484,40 @@ export default function Members() {
 
         {/* Pagination */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-          <p>Showing <span className="font-medium text-gray-700">1</span> to <span className="font-medium text-gray-700">10</span> of <span className="font-medium text-gray-700">342</span> entries</p>
+          <p>
+            Showing <span className="font-medium text-gray-700">{totalEntries === 0 ? 0 : startIndex + 1}</span> to{" "}
+            <span className="font-medium text-gray-700">{endIndex}</span> of{" "}
+            <span className="font-medium text-gray-700">{totalEntries}</span> entries
+          </p>
           <div className="flex items-center gap-1">
-            <button className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">Previous</button>
-            {[1, 2, 3].map((n) => (
+            <button
+              type="button"
+              disabled={currentPageSafe === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((n) => (
               <button
+                type="button"
                 key={n}
-                className={`px-3 py-1.5 rounded-md transition-colors ${n === 1 ? "bg-gray-900 text-white" : "border border-gray-200 hover:bg-gray-50"}`}
+                onClick={() => setCurrentPage(n)}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  n === currentPageSafe ? "bg-gray-900 text-white" : "border border-gray-200 hover:bg-gray-50"
+                }`}
               >
                 {n}
               </button>
             ))}
-            <span className="px-1">...</span>
-            <button className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">35</button>
-            <button className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">Next</button>
+            <button
+              type="button"
+              disabled={currentPageSafe === totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>

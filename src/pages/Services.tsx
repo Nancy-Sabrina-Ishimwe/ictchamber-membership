@@ -7,7 +7,9 @@ import {
   Users,
 } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 
 type TrendItem = {
   month: string;
@@ -23,32 +25,78 @@ type ActivityItem = {
   icon: "delivered" | "request" | "member" | "maintenance";
 };
 
-const stats = [
-  { title: "Total Members", value: "1,248", delta: "12% from last month", positive: true, icon: Users },
-  { title: "Pending Requests", value: "42", delta: "5% from last week", positive: false, icon: ClipboardCheck },
-  { title: "Services Delivered", value: "892", delta: "18% from last month", positive: true, icon: CheckCircle2 },
-  { title: "Active Services", value: "156", delta: "2% from last week", positive: true, icon: Activity },
-];
-
-const trendData: TrendItem[] = [
-  { month: "Jan", requested: 23, delivered: 30 },
-  { month: "Feb", requested: 52, delivered: 40 },
-  { month: "Mar", requested: 48, delivered: 52 },
-  { month: "Apr", requested: 61, delivered: 50 },
-  { month: "May", requested: 55, delivered: 58 },
-  { month: "Jun", requested: 67, delivered: 78 },
-];
-
-const activities: ActivityItem[] = [
-  { id: 1, title: "Service Delivered", company: "Acme Corp", time: "2 hours ago", icon: "delivered" },
-  { id: 2, title: "New Request", company: "Globex Inc", time: "4 hours ago", icon: "request" },
-  { id: 3, title: "New Member Added", company: "Stark Industries", time: "Yesterday", icon: "member" },
-  { id: 4, title: "Service Delivered", company: "Wayne Enterprises", time: "Yesterday", icon: "delivered" },
-  { id: 5, title: "System Maintenance", company: "Server #4", time: "2 days ago", icon: "maintenance" },
-];
+type ServicesAnalyticsResponse = {
+  success: boolean;
+  data: {
+    summary: {
+      totalMembers: number;
+      pendingRequests: number;
+      deliveredServices: number;
+      activeServices: number;
+    };
+    trendsLastSixMonths: TrendItem[];
+    recentActivity: Array<{
+      id: number;
+      title: string;
+      company: string;
+      status: "REQUESTED" | "DELIVERED";
+      createdAt: string;
+      deliveredAt: string | null;
+      updatedAt: string;
+    }>;
+  };
+};
 
 export default function DeliveredServices() {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState({
+    totalMembers: 0,
+    pendingRequests: 0,
+    deliveredServices: 0,
+    activeServices: 0,
+  });
+  const [trendData, setTrendData] = useState<TrendItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setError(null);
+        setIsLoading(true);
+        const response = await api.get<ServicesAnalyticsResponse>("/analytics/services/superadmin");
+        const payload = response.data.data;
+        setSummary(payload.summary);
+        setTrendData(payload.trendsLastSixMonths);
+        setActivities(
+          payload.recentActivity.map((activity) => ({
+            id: activity.id,
+            title: activity.title,
+            company: activity.company,
+            time: formatRelativeTime(activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt),
+            icon: activity.status === "DELIVERED" ? "delivered" : "request",
+          })),
+        );
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : "Failed to load services analytics.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchAnalytics();
+  }, []);
+
+  const stats = useMemo(
+    () => [
+      { title: "Total Members", value: summary.totalMembers.toLocaleString(), delta: "Current total", positive: true, icon: Users },
+      { title: "Pending Requests", value: summary.pendingRequests.toLocaleString(), delta: "Awaiting delivery", positive: false, icon: ClipboardCheck },
+      { title: "Services Delivered", value: summary.deliveredServices.toLocaleString(), delta: "Completed requests", positive: true, icon: CheckCircle2 },
+      { title: "Active Services", value: summary.activeServices.toLocaleString(), delta: "Registered service types", positive: true, icon: Activity },
+    ],
+    [summary],
+  );
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -72,6 +120,12 @@ export default function DeliveredServices() {
           </button>
         </div>
       </div>
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {stats.map((item) => (
@@ -105,6 +159,12 @@ export default function DeliveredServices() {
           <h3 className="text-sm sm:text-base font-semibold text-gray-900">Recent Activity</h3>
           <p className="text-xs text-gray-500 mt-1">Latest actions across the platform.</p>
           <div className="mt-3 space-y-2.5">
+            {isLoading && activities.length === 0 ? (
+              <p className="text-xs text-gray-500">Loading activity...</p>
+            ) : null}
+            {!isLoading && activities.length === 0 ? (
+              <p className="text-xs text-gray-500">No recent service activity found.</p>
+            ) : null}
             {activities.map((item) => (
               <ActivityRow key={item.id} item={item} />
             ))}
@@ -164,4 +224,26 @@ function ActivityRow({ item }: { item: ActivityItem }) {
       </div>
     </div>
   );
+}
+
+function formatRelativeTime(dateLike: string) {
+  const timestamp = new Date(dateLike);
+  if (Number.isNaN(timestamp.getTime())) return "Unknown time";
+
+  const diffMs = Date.now() - timestamp.getTime();
+  const hourMs = 1000 * 60 * 60;
+  const dayMs = hourMs * 24;
+
+  if (diffMs < hourMs) {
+    const minutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+    return `${minutes} min ago`;
+  }
+
+  if (diffMs < dayMs) {
+    const hours = Math.floor(diffMs / hourMs);
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.floor(diffMs / dayMs);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }

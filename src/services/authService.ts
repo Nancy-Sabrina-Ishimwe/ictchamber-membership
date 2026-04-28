@@ -34,7 +34,7 @@ interface DemoPaymentResponse {
 
 interface MeResponse {
   success: boolean;
-  user: BackendUser;
+  data: BackendUser;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ export async function loginApi(
 /** GET /auth/me */
 export async function getMeApi(): Promise<AuthUser> {
   const { data } = await api.get<MeResponse>('/auth/me');
-  return backendUserToAuthUser(data.user);
+  return backendUserToAuthUser(data.data);
 }
 
 /** POST /auth/logout (stateless, best-effort) */

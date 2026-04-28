@@ -20,6 +20,15 @@ export interface InitiatePaymentResponse {
   data?: Record<string, unknown>;
 }
 
+export interface PaymentCardsAnalytics {
+  totalCollectedYtd: number;
+  pendingAmount: number;
+  failedTransactions: number;
+  totalTransactions: number;
+  currency: string;
+  year: number;
+}
+
 type PaymentApiItem = {
   id?: string | number;
   companyName?: string;
@@ -66,6 +75,23 @@ export async function getPayments(): Promise<Payment[]> {
   const { data } = await api.get<PaymentApiItem[] | { data?: PaymentApiItem[] }>('/payments');
   const records = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
   return records.map(normalizePayment);
+}
+
+/**
+ * GET /api/payments/analytics/cards
+ * Fetches payment KPI cards for admin payments page.
+ */
+export async function getPaymentCardsAnalytics(): Promise<PaymentCardsAnalytics> {
+  const { data } = await api.get<{ data?: Partial<PaymentCardsAnalytics> }>('/payments/analytics/cards');
+  const cards = data?.data ?? {};
+  return {
+    totalCollectedYtd: Number(cards.totalCollectedYtd ?? 0),
+    pendingAmount: Number(cards.pendingAmount ?? 0),
+    failedTransactions: Number(cards.failedTransactions ?? 0),
+    totalTransactions: Number(cards.totalTransactions ?? 0),
+    currency: String(cards.currency ?? 'RWF'),
+    year: Number(cards.year ?? new Date().getFullYear()),
+  };
 }
 
 /**
