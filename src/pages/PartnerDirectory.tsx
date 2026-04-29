@@ -1,5 +1,6 @@
 import { Search, Download, RefreshCw, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../lib/api";
 
 type Partner = {
@@ -27,18 +28,6 @@ type PartnersApiResponse = {
   success: boolean;
   count: number;
   data: PartnerApiItem[];
-};
-
-type ServiceSubtypeApiItem = {
-  id: number;
-  name: string;
-  serviceId: number;
-};
-
-type ServiceSubtypeResponse = {
-  success: boolean;
-  data: ServiceSubtypeApiItem;
-  message?: string;
 };
 
 const statusStyles = {
@@ -104,6 +93,18 @@ export default function PartnerDirectory() {
   const [programFilter, setProgramFilter] = useState("");
   const [timeframeFilter, setTimeframeFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [viewPartner, setViewPartner] = useState<Partner | null>(null);
+  const [editPartner, setEditPartner] = useState<Partner | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    contactName: "",
+    contactEmail: "",
+    program: "",
+    status: "Incoming" as Partner["status"],
+    timeframe: "",
+  });
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   const pageSize = 10;
 
   const fetchPartners = async () => {
@@ -144,42 +145,88 @@ export default function PartnerDirectory() {
   const start = total === 0 ? 0 : (safePage - 1) * pageSize;
   const end = Math.min(start + pageSize, total);
   const pageItems = filteredPartners.slice(start, end);
+  const pageItemIds = pageItems.map((item) => item.id);
+  const selectedVisibleCount = pageItemIds.filter((id) => selectedIds.includes(id)).length;
+  const allVisibleSelected = pageItemIds.length > 0 && selectedVisibleCount === pageItemIds.length;
+  const partiallySelected = selectedVisibleCount > 0 && !allVisibleSelected;
 
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter, programFilter, timeframeFilter]);
 
-  const viewSubtype = async (id: number) => {
-    try {
-      const response = await api.get<ServiceSubtypeResponse>(`/service-subtypes/${id}`);
-      window.alert(`Subtype #${id}: ${response.data.data.name}`);
-    } catch (viewError) {
-      setError(viewError instanceof Error ? viewError.message : "Failed to fetch service subtype.");
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
     }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = partiallySelected;
+  }, [partiallySelected]);
+
+  useEffect(() => {
+    if (!viewPartner && !editPartner) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [viewPartner, editPartner]);
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageItemIds.includes(id)));
+      return;
+    }
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...pageItemIds])));
   };
 
-  const updateSubtype = async (id: number) => {
-    try {
-      const current = await api.get<ServiceSubtypeResponse>(`/service-subtypes/${id}`);
-      const currentName = current.data.data.name;
-      const currentServiceId = current.data.data.serviceId;
-      const nextName = window.prompt("Subtype name", currentName);
-      if (!nextName) return;
-      await api.put<ServiceSubtypeResponse>(`/service-subtypes/${id}`, { name: nextName, serviceId: currentServiceId });
-      window.alert("Service subtype updated.");
-    } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Failed to update service subtype.");
-    }
+  const toggleSelectOne = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]));
   };
 
-  const deleteSubtype = async (id: number) => {
-    const confirmed = window.confirm(`Delete service subtype with id ${id}?`);
+  const openEditModal = (partner: Partner) => {
+    setEditPartner(partner);
+    setEditForm({
+      name: partner.name,
+      contactName: partner.contactName,
+      contactEmail: partner.contactEmail,
+      program: partner.program,
+      status: partner.status,
+      timeframe: partner.timeframe,
+    });
+  };
+
+  const savePartnerEdit = () => {
+    if (!editPartner) return;
+    setPartners((prev) =>
+      prev.map((item) =>
+        item.id === editPartner.id
+          ? {
+              ...item,
+              name: editForm.name.trim() || item.name,
+              contactName: editForm.contactName.trim() || item.contactName,
+              contactEmail: editForm.contactEmail.trim() || item.contactEmail,
+              program: editForm.program.trim() || item.program,
+              status: editForm.status,
+              timeframe: editForm.timeframe.trim() || item.timeframe,
+            }
+          : item,
+      ),
+    );
+    setEditPartner(null);
+  };
+
+  const deletePartner = async (id: number) => {
+    const confirmed = window.confirm(`Delete partner with id ${id}?`);
     if (!confirmed) return;
     try {
-      await api.delete(`/service-subtypes/${id}`);
-      window.alert("Service subtype deleted.");
+      await api.delete(`/partners/${id}`);
+      setPartners((prev) => prev.filter((partner) => partner.id !== id));
+      setSelectedIds((prev) => prev.filter((itemId) => itemId !== id));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete service subtype.");
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete partner.");
     }
   };
 
@@ -243,9 +290,9 @@ export default function PartnerDirectory() {
                 <div className="text-right"><p className="text-gray-400">Timeframe</p><p className="text-gray-400">{p.timeframe}</p></div>
               </div>
               <div className="flex gap-3 pt-1">
-                <button className="text-gray-400 hover:text-gray-600" onClick={() => void viewSubtype(p.id)}><Eye size={14} /></button>
-                <button className="text-gray-400 hover:text-gray-600" onClick={() => void updateSubtype(p.id)}><Pencil size={14} /></button>
-                <button className="text-gray-400 hover:text-red-500" onClick={() => void deleteSubtype(p.id)}><Trash2 size={14} /></button>
+                <button className="text-gray-400 hover:text-gray-600" onClick={() => setViewPartner(p)}><Eye size={14} /></button>
+                <button className="text-gray-400 hover:text-gray-600" onClick={() => openEditModal(p)}><Pencil size={14} /></button>
+                <button className="text-gray-400 hover:text-red-500" onClick={() => void deletePartner(p.id)}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -265,7 +312,16 @@ export default function PartnerDirectory() {
             </colgroup>
             <thead className="border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3"><input type="checkbox" className="rounded" /></th>
+                <th className="px-4 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="rounded"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Select all visible partners"
+                  />
+                </th>
                 <th className="text-left px-3 py-3 text-gray-400 font-medium">Partner Name</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-medium">Contact</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-medium">Program</th>
@@ -291,7 +347,15 @@ export default function PartnerDirectory() {
               ) : null}
               {pageItems.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-4"><input type="checkbox" className="rounded" /></td>
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={selectedIds.includes(p.id)}
+                      onChange={() => toggleSelectOne(p.id)}
+                      aria-label={`Select ${p.name}`}
+                    />
+                  </td>
                   <td className="px-3 py-4 font-medium text-gray-800">{p.name}</td>
                   <td className="px-3 py-4">
                     <p className="font-semibold text-gray-800 truncate">{p.contactName}</p>
@@ -302,9 +366,9 @@ export default function PartnerDirectory() {
                   <td className="px-3 py-4 text-gray-400">{p.timeframe}</td>
                   <td className="px-3 py-4">
                     <div className="flex items-center gap-2.5">
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={() => void viewSubtype(p.id)}><Eye size={14} /></button>
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={() => void updateSubtype(p.id)}><Pencil size={14} /></button>
-                      <button className="text-gray-400 hover:text-red-500 transition-colors" onClick={() => void deleteSubtype(p.id)}><Trash2 size={14} /></button>
+                      <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={() => setViewPartner(p)}><Eye size={14} /></button>
+                      <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={() => openEditModal(p)}><Pencil size={14} /></button>
+                      <button className="text-gray-400 hover:text-red-500 transition-colors" onClick={() => void deletePartner(p.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -348,6 +412,118 @@ export default function PartnerDirectory() {
           </div>
         </div>
       </div>
+
+      {/* View Modal */}
+      {viewPartner ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setViewPartner(null)}>
+          <div className="w-full max-w-md rounded-md border border-gray-200 bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900">Partner Details</h3>
+              <button type="button" onClick={() => setViewPartner(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-2 p-4 text-sm">
+              <p><span className="text-gray-500">Partner Name:</span> <span className="font-medium text-gray-900">{viewPartner.name}</span></p>
+              <p><span className="text-gray-500">Contact:</span> <span className="font-medium text-gray-900">{viewPartner.contactName}</span></p>
+              <p><span className="text-gray-500">Email:</span> <span className="font-medium text-gray-900">{viewPartner.contactEmail}</span></p>
+              <p><span className="text-gray-500">Program:</span> <span className="font-medium text-gray-900">{viewPartner.program}</span></p>
+              <p><span className="text-gray-500">Status:</span> <span className={`font-medium text-gray-900 ${statusStyles[viewPartner.status]}`}>{viewPartner.status}</span></p>
+              <p><span className="text-gray-500">Timeframe:</span> <span className="font-medium text-gray-900">{viewPartner.timeframe}</span></p>
+            </div>
+            <div className="flex justify-end border-t border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setViewPartner(null)}
+                className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body) : null}
+
+      {/* Edit Modal */}
+      {editPartner ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditPartner(null)}>
+          <div className="w-full max-w-lg rounded-md border border-gray-200 bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900">Edit Partner</h3>
+              <button type="button" onClick={() => setEditPartner(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-500">Partner Name</label>
+                <input
+                  value={editForm.name}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Contact Name</label>
+                <input
+                  value={editForm.contactName}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, contactName: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Contact Email</label>
+                <input
+                  value={editForm.contactEmail}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, contactEmail: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Program</label>
+                <input
+                  value={editForm.program}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, program: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, status: event.target.value as Partner["status"] }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="Incoming">Incoming</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Complete">Complete</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-500">Timeframe</label>
+                <input
+                  value={editForm.timeframe}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, timeframe: event.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  placeholder="2024 - 2025"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setEditPartner(null)}
+                className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={savePartnerEdit}
+                className="rounded-md bg-[#EF9F27] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#d99b22]"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body) : null}
     </div>
   );
 }

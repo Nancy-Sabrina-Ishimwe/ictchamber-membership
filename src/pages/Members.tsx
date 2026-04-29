@@ -1,7 +1,8 @@
 import { Search, Filter, ChevronDown, MoreVertical, Eye, CheckCircle2, XCircle, Clock3 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { ROUTES } from "../constants/app";
 
 type Member = {
   id: string;
@@ -149,6 +150,8 @@ export default function Members() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   const pageSize = 10;
 
   useEffect(() => {
@@ -208,6 +211,10 @@ export default function Members() {
   const startIndex = totalEntries === 0 ? 0 : (currentPageSafe - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalEntries);
   const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+  const paginatedMemberIds = paginatedMembers.map((member) => member.id);
+  const selectedVisibleCount = paginatedMemberIds.filter((id) => selectedMemberIds.includes(id)).length;
+  const allVisibleSelected = paginatedMemberIds.length > 0 && selectedVisibleCount === paginatedMemberIds.length;
+  const partiallyVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -218,6 +225,25 @@ export default function Members() {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    selectAllRef.current.indeterminate = partiallyVisibleSelected;
+  }, [partiallyVisibleSelected]);
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedMemberIds((prev) => prev.filter((id) => !paginatedMemberIds.includes(id)));
+      return;
+    }
+    setSelectedMemberIds((prev) => Array.from(new Set([...prev, ...paginatedMemberIds])));
+  };
+
+  const toggleSelectMember = (memberId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId],
+    );
+  };
 
   const toggleMemberStatus = async (memberId: string) => {
     try {
@@ -237,14 +263,10 @@ export default function Members() {
     }
   };
 
-  const viewMemberProfile = async (memberId: string) => {
-    try {
-      await api.get(`/members/${memberId}`);
-      navigate(`/admin/members/${memberId}`);
-      setOpenActionFor(null);
-    } catch (viewError) {
-      setError(viewError instanceof Error ? viewError.message : "Failed to fetch member profile.");
-    }
+  const viewMemberProfile = (memberId: string) => {
+    // Navigate immediately; the profile page can load its own data.
+    navigate(`/admin/members/${memberId}`);
+    setOpenActionFor(null);
   };
 
   const renderStatusAction = (status: Member["status"]) => {
@@ -270,7 +292,11 @@ export default function Members() {
           <div className="px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs shadow-sm">
             Total Active: <span className="font-bold text-green-600">{activeMembersCount}</span>
           </div>
-          <button className="px-4 py-1.5 bg-yellow-400 hover:bg-yellow-300 transition-colors text-black rounded-md text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.ADMIN_REGISTRATIONS)}
+            className="px-4 py-1.5 bg-yellow-400 hover:bg-yellow-300 transition-colors text-black rounded-md text-xs font-semibold"
+          >
             Registrations
           </button>
         </div>
@@ -387,7 +413,16 @@ export default function Members() {
           <table className="w-full text-xs min-w-[960px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="w-8 px-4 py-3"><input type="checkbox" className="rounded" /></th>
+                <th className="w-8 px-4 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="rounded"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Select all visible members"
+                  />
+                </th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">MEMBERSHIP ID</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">COMPANY NAME</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">MEMBERSHIP CLUSTER</th>
@@ -417,7 +452,15 @@ export default function Members() {
               ) : null}
               {paginatedMembers.map((m) => (
                 <tr key={m.id} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="px-4 py-3"><input type="checkbox" className="rounded" /></td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={selectedMemberIds.includes(m.id)}
+                      onChange={() => toggleSelectMember(m.id)}
+                      aria-label={`Select ${m.name}`}
+                    />
+                  </td>
                   <td className="px-3 py-3 text-blue-600 font-medium cursor-pointer hover:underline">{m.id}</td>
                   <td className="px-3 py-3 font-semibold text-gray-800">{m.name}</td>
                   <td className="px-3 py-3 text-gray-500">{m.cluster}</td>

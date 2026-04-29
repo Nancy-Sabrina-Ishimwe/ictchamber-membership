@@ -1,5 +1,6 @@
 import { Search, Plus, Calendar, Clock3, MapPin, Building2, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import EventModal from "../components/EventModal";
 
 /* TYPES */
@@ -14,6 +15,8 @@ type Event = {
 
 export default function Events() {
   const [openModal, setOpenModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   const events: Event[] = [
     {
@@ -50,6 +53,24 @@ export default function Events() {
     },
   ];
 
+  const filteredEvents = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return events;
+    return events.filter((event) =>
+      [
+        event.title,
+        event.location,
+        event.date,
+        event.time,
+        event.status,
+        ...event.companies,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [events, searchQuery]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
 
@@ -60,6 +81,8 @@ export default function Events() {
           <input
             placeholder="Search events"
             className="ml-2 outline-none text-sm w-full bg-transparent"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
           />
         </div>
 
@@ -77,22 +100,29 @@ export default function Events() {
 
       {/* GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
-        {events.map((e, i) => (
-          <EventCard key={i} event={e} />
+        {filteredEvents.map((e, i) => (
+          <EventCard key={i} event={e} onClick={() => setSelectedEvent(e)} />
         ))}
       </div>
 
       {/* MODAL */}
       {openModal && <EventModal onClose={() => setOpenModal(false)} />}
+      {selectedEvent ? (
+        <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+      ) : null}
     </div>
   );
 }
 
 /* ================= CARD ================= */
 
-function EventCard({ event }: { event: Event }) {
+function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
   return (
-      <div className="bg-white rounded-md shadow-sm border border-gray-200 p-4 flex flex-col h-full min-h-[255px] transition-all duration-200 hover:border-gray-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+      <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left bg-white rounded-md shadow-sm border border-gray-200 p-4 flex flex-col h-full min-h-[255px] transition-all duration-200 hover:border-gray-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+    >
 
       {/* TOP */}
       <div className="space-y-2.5">
@@ -155,6 +185,51 @@ function EventCard({ event }: { event: Event }) {
         </div>
       </div>
 
-    </div>
+    </button>
+  );
+}
+
+function EventDetailsModal({ event, onClose }: { event: Event; onClose: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-md border border-gray-200 bg-white shadow-xl"
+        onClick={(evt) => evt.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-semibold text-gray-900">Event Details</h3>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            ✕
+          </button>
+        </div>
+        <div className="space-y-2 p-4 text-sm">
+          <p><span className="text-gray-500">Title:</span> <span className="font-medium text-gray-900">{event.title}</span></p>
+          <p><span className="text-gray-500">Status:</span> <span className="font-medium text-gray-900">{event.status}</span></p>
+          <p><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-900">{event.date}</span></p>
+          <p><span className="text-gray-500">Time:</span> <span className="font-medium text-gray-900">{event.time}</span></p>
+          <p><span className="text-gray-500">Location:</span> <span className="font-medium text-gray-900">{event.location}</span></p>
+          <div className="pt-1">
+            <p className="text-gray-500">Participating Companies:</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {event.companies.map((company) => (
+                <span key={company} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+                  {company}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end border-t border-gray-100 px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

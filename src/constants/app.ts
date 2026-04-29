@@ -14,6 +14,7 @@ export const ROUTES = {
   // Admin
   ADMIN: '/admin',
   ADMIN_MEMBERS: '/admin/members',
+  ADMIN_REGISTRATIONS: '/admin/members/registrations',
   ADMIN_MEMBER_PROFILE: (id: string) => `/admin/members/${id}`,
   ADMIN_PAYMENTS: '/admin/payments',
   ADMIN_MESSAGING: '/admin/messaging',

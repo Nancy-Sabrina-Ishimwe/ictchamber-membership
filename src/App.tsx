@@ -17,6 +17,7 @@ import PartnerDirectory from './pages/PartnerDirectory';
 import Partners from './pages/Partners';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
+import Registrations from './pages/Registrations';
 import Renewals from './pages/Renewals';
 import SecuritySettings from './pages/SecuritySettings';
 import Services from './pages/Services';
@@ -84,6 +85,16 @@ function App() {
             <AdminRoute>
               <AdminShell>
                 <Members />
+              </AdminShell>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path={ROUTES.ADMIN_REGISTRATIONS}
+          element={
+            <AdminRoute>
+              <AdminShell>
+                <Registrations />
               </AdminShell>
             </AdminRoute>
           }

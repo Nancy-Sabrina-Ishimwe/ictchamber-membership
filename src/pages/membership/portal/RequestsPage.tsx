@@ -21,13 +21,21 @@ export const RequestsPage: React.FC = () => {
     title: string;
     category: string;
     submittedDate: string;
+    submittedAt: string;
     status: RequestStatus;
     assignedOfficer: string;
     serviceCategoryId: number;
     serviceSubtypeId: number;
+    detailedDescription: string;
+    preferredContactMethod: string;
+    preferredDeliveryDate: string;
+    priorityLevel: string;
   }>>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showDateRange, setShowDateRange] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -36,6 +44,47 @@ export const RequestsPage: React.FC = () => {
     serviceCategoryId: '',
     serviceSubtypeId: '',
     requestTitle: '',
+    detailedDescription: '',
+    preferredContactMethod: 'Email',
+    preferredDeliveryDate: '',
+    priorityLevel: 'MEDIUM',
+  });
+  const [selectedRequest, setSelectedRequest] = useState<{
+    id: string;
+    requestId: string;
+    title: string;
+    category: string;
+    submittedDate: string;
+    submittedAt: string;
+    status: RequestStatus;
+    assignedOfficer: string;
+    serviceCategoryId: number;
+    serviceSubtypeId: number;
+    detailedDescription: string;
+    preferredContactMethod: string;
+    preferredDeliveryDate: string;
+    priorityLevel: string;
+  } | null>(null);
+  const [editingRequest, setEditingRequest] = useState<{
+    id: string;
+    requestId: string;
+    title: string;
+    category: string;
+    submittedDate: string;
+    submittedAt: string;
+    status: RequestStatus;
+    assignedOfficer: string;
+    serviceCategoryId: number;
+    serviceSubtypeId: number;
+    detailedDescription: string;
+    preferredContactMethod: string;
+    preferredDeliveryDate: string;
+    priorityLevel: string;
+  } | null>(null);
+  const [editForm, setEditForm] = useState({
+    requestTitle: '',
+    serviceCategoryId: '',
+    serviceSubtypeId: '',
     detailedDescription: '',
     preferredContactMethod: 'Email',
     preferredDeliveryDate: '',
@@ -83,6 +132,7 @@ export const RequestsPage: React.FC = () => {
             requestId: `REQ-${item.id}`,
             title: item.requestTitle,
             category: `${item.serviceCategory.categoryName} / ${item.serviceSubtype.name}`,
+            submittedAt: item.createdAt,
             submittedDate: new Intl.DateTimeFormat('en-GB', {
               day: '2-digit',
               month: 'short',
@@ -92,6 +142,10 @@ export const RequestsPage: React.FC = () => {
             assignedOfficer: item.benefittingMember?.companyName ?? 'Pending Assignment',
             serviceCategoryId: item.serviceCategory.id,
             serviceSubtypeId: item.serviceSubtype.id,
+            detailedDescription: '',
+            preferredContactMethod: 'Email',
+            preferredDeliveryDate: '',
+            priorityLevel: 'MEDIUM',
           })),
         );
       } catch (fetchError) {
@@ -168,6 +222,7 @@ export const RequestsPage: React.FC = () => {
           requestId: `REQ-${created.id}`,
           title: created.requestTitle,
           category: `${created.serviceCategory.categoryName} / ${created.serviceSubtype.name}`,
+          submittedAt: created.createdAt,
           submittedDate: new Intl.DateTimeFormat('en-GB', {
             day: '2-digit',
             month: 'short',
@@ -177,6 +232,10 @@ export const RequestsPage: React.FC = () => {
           assignedOfficer: 'Pending Assignment',
           serviceCategoryId: created.serviceCategory.id,
           serviceSubtypeId: created.serviceSubtype.id,
+          detailedDescription: form.detailedDescription.trim(),
+          preferredContactMethod: form.preferredContactMethod,
+          preferredDeliveryDate: form.preferredDeliveryDate,
+          priorityLevel: form.priorityLevel,
         },
         ...prev,
       ]);
@@ -204,9 +263,72 @@ export const RequestsPage: React.FC = () => {
         r.requestId.toLowerCase().includes(search.toLowerCase()) ||
         r.title.toLowerCase().includes(search.toLowerCase());
       const matchStatus = !statusFilter || r.status === statusFilter;
-      return matchSearch && matchStatus;
+      const submittedAtDate = new Date(r.submittedAt);
+      const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+      const toDate = dateTo ? new Date(`${dateTo}T23:59:59`) : null;
+      const matchFrom = !fromDate || submittedAtDate >= fromDate;
+      const matchTo = !toDate || submittedAtDate <= toDate;
+      return matchSearch && matchStatus && matchFrom && matchTo;
     });
-  }, [requests, search, statusFilter]);
+  }, [requests, search, statusFilter, dateFrom, dateTo]);
+
+  const startEditRequest = (req: {
+    id: string;
+    requestId: string;
+    title: string;
+    category: string;
+    submittedDate: string;
+    submittedAt: string;
+    status: RequestStatus;
+    assignedOfficer: string;
+    serviceCategoryId: number;
+    serviceSubtypeId: number;
+    detailedDescription: string;
+    preferredContactMethod: string;
+    preferredDeliveryDate: string;
+    priorityLevel: string;
+  }) => {
+    setEditingRequest(req);
+    setEditForm({
+      requestTitle: req.title,
+      serviceCategoryId: String(req.serviceCategoryId),
+      serviceSubtypeId: String(req.serviceSubtypeId),
+      detailedDescription: req.detailedDescription,
+      preferredContactMethod: req.preferredContactMethod,
+      preferredDeliveryDate: req.preferredDeliveryDate,
+      priorityLevel: req.priorityLevel,
+    });
+  };
+
+  const saveEditRequest = () => {
+    if (!editingRequest) return;
+    const category = services.find((service) => service.id === Number(editForm.serviceCategoryId));
+    const subtype = serviceSubtypes.find((item) => item.id === Number(editForm.serviceSubtypeId));
+    setRequests((prev) =>
+      prev.map((item) =>
+        item.id === editingRequest.id
+          ? {
+              ...item,
+              title: editForm.requestTitle.trim() || item.title,
+              serviceCategoryId: Number(editForm.serviceCategoryId) || item.serviceCategoryId,
+              serviceSubtypeId: Number(editForm.serviceSubtypeId) || item.serviceSubtypeId,
+              category: category && subtype ? `${category.serviceName} / ${subtype.name}` : item.category,
+              detailedDescription: editForm.detailedDescription.trim(),
+              preferredContactMethod: editForm.preferredContactMethod,
+              preferredDeliveryDate: editForm.preferredDeliveryDate,
+              priorityLevel: editForm.priorityLevel,
+            }
+          : item,
+      ),
+    );
+    setEditingRequest(null);
+  };
+
+  const deleteRequest = (id: string) => {
+    setRequests((prev) => prev.filter((item) => item.id !== id));
+    if (selectedRequest?.id === id) setSelectedRequest(null);
+    if (editingRequest?.id === id) setEditingRequest(null);
+  };
 
   return (
     <PortalLayout title="Request Services">
@@ -366,12 +488,62 @@ export const RequestsPage: React.FC = () => {
           </select>
         </div>
 
-        <button className="flex items-center gap-2 text-xs border border-gray-200 rounded-sm bg-white px-3 py-2 hover:border-gray-300 transition-colors text-gray-600">
-          <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          Date Range
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowDateRange((prev) => !prev)}
+            className="flex items-center gap-2 text-xs border border-gray-200 rounded-sm bg-white px-3 py-2 hover:border-gray-300 transition-colors text-gray-600"
+          >
+            <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            Date Range
+          </button>
+          {showDateRange ? (
+            <div className="absolute right-0 z-20 mt-2 w-[280px] rounded-sm border border-gray-200 bg-white p-3 shadow-lg">
+              <p className="text-xs font-semibold text-gray-700 mb-2">Filter by date</p>
+              <div className="grid grid-cols-1 gap-2">
+                <label className="text-[11px] text-gray-500">
+                  From
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="mt-1 w-full rounded-sm border border-gray-200 px-2 py-1.5 text-xs"
+                  />
+                </label>
+                <label className="text-[11px] text-gray-500">
+                  To
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="mt-1 w-full rounded-sm border border-gray-200 px-2 py-1.5 text-xs"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                  className="rounded-sm border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDateRange(false)}
+                  className="rounded-sm bg-[#EF9F27] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#d98e1e]"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Table */}
@@ -410,6 +582,38 @@ export const RequestsPage: React.FC = () => {
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                     <span>{req.submittedDate}</span>
                     <span>{req.assignedOfficer}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRequest(req)}
+                        className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
+                        title="View request"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditRequest(req)}
+                        className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
+                        title="Edit request"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.586 3.586a2 2 0 112.828 2.828L12 13.828l-4 1 1-4 7.586-7.242z"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteRequest(req.id)}
+                        className="rounded-md p-1 text-red-500 hover:bg-red-50"
+                        title="Delete request"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8m-6-3h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -422,17 +626,198 @@ export const RequestsPage: React.FC = () => {
                   <span className="text-xs text-gray-500">{req.submittedDate}</span>
                   <StatusBadge status={req.status as RequestStatus} />
                   <span className="text-xs text-gray-700">{req.assignedOfficer}</span>
-                  <button className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRequest(req)}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="View request"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startEditRequest(req)}
+                      className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit request"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M16.586 3.586a2 2 0 112.828 2.828L12 13.828l-4 1 1-4 7.586-7.242z"/>
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteRequest(req.id)}
+                      className="p-1.5 rounded-md hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                      title="Delete request"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8m-6-3h4a1 1 0 011 1v2H9V5a1 1 0 011-1z"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : null}
       </div>
+
+      {selectedRequest ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedRequest(null)}>
+          <div className="w-full max-w-md rounded-sm bg-white border border-gray-200 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Request Details</h3>
+              <button type="button" className="text-gray-400 hover:text-gray-600" onClick={() => setSelectedRequest(null)}>✕</button>
+            </div>
+            <div className="p-4 space-y-2 text-sm">
+              <p><span className="text-gray-500">Request ID:</span> <span className="font-medium text-gray-900">{selectedRequest.requestId}</span></p>
+              <p><span className="text-gray-500">Title:</span> <span className="font-medium text-gray-900">{selectedRequest.title}</span></p>
+              <p><span className="text-gray-500">Category:</span> <span className="font-medium text-gray-900">{selectedRequest.category}</span></p>
+              <p><span className="text-gray-500">Submitted:</span> <span className="font-medium text-gray-900">{selectedRequest.submittedDate}</span></p>
+              <p><span className="text-gray-500">Assigned Officer:</span> <span className="font-medium text-gray-900">{selectedRequest.assignedOfficer}</span></p>
+              <p><span className="text-gray-500">Preferred Contact:</span> <span className="font-medium text-gray-900">{selectedRequest.preferredContactMethod}</span></p>
+              <p><span className="text-gray-500">Preferred Delivery:</span> <span className="font-medium text-gray-900">{selectedRequest.preferredDeliveryDate || '-'}</span></p>
+              <p><span className="text-gray-500">Priority:</span> <span className="font-medium text-gray-900">{selectedRequest.priorityLevel}</span></p>
+              {selectedRequest.detailedDescription ? (
+                <div>
+                  <p className="text-gray-500">Description:</p>
+                  <p className="font-medium text-gray-900">{selectedRequest.detailedDescription}</p>
+                </div>
+              ) : null}
+              <div className="pt-1">
+                <StatusBadge status={selectedRequest.status as RequestStatus} />
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end">
+              <button type="button" className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50" onClick={() => setSelectedRequest(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingRequest ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditingRequest(null)}>
+          <div className="w-full max-w-lg rounded-sm bg-white border border-gray-200 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Edit Request</h3>
+              <button type="button" className="text-gray-400 hover:text-gray-600" onClick={() => setEditingRequest(null)}>✕</button>
+            </div>
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500">Category *</label>
+                <select
+                  value={editForm.serviceCategoryId}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      serviceCategoryId: event.target.value,
+                      serviceSubtypeId: '',
+                    }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Select category</option>
+                  {categoryOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Subtype *</label>
+                <select
+                  value={editForm.serviceSubtypeId}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, serviceSubtypeId: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Select subtype</option>
+                  {serviceSubtypes
+                    .filter((item) =>
+                      editForm.serviceCategoryId ? item.serviceId === Number(editForm.serviceCategoryId) : true,
+                    )
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-500">Request Title *</label>
+                <input
+                  value={editForm.requestTitle}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, requestTitle: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                  placeholder="Enter request title"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-gray-500">Detailed Description *</label>
+                <textarea
+                  value={editForm.detailedDescription}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, detailedDescription: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm min-h-[90px]"
+                  placeholder="Describe what you need"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Preferred Contact Method *</label>
+                <select
+                  value={editForm.preferredContactMethod}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, preferredContactMethod: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="Email">Email</option>
+                  <option value="Phone">Phone</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Preferred Delivery Date *</label>
+                <input
+                  type="date"
+                  value={editForm.preferredDeliveryDate}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, preferredDeliveryDate: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Priority *</label>
+                <select
+                  value={editForm.priorityLevel}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, priorityLevel: event.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-gray-200 px-3 py-2 text-sm"
+                >
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                </select>
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingRequest(null)}
+                className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveEditRequest}
+                className="rounded-sm bg-[#EF9F27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d98e1e]"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PortalLayout>
   );
 };

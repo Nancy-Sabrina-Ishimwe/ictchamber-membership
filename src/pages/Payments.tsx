@@ -140,6 +140,12 @@ export default function Payments() {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, fromDate, toDate]);
 
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
 
@@ -193,57 +199,56 @@ export default function Payments() {
       </div>
 
       {/* FILTER BAR */}
-      <div className="bg-white p-3 sm:p-4 rounded-md border border-gray-200 shadow-sm flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
+      <div className="bg-white p-3 sm:p-4 rounded-md border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[repeat(2,minmax(0,180px))_minmax(0,1fr)_minmax(0,160px)_auto] gap-2 min-w-0">
+            <div className="flex items-center gap-2 border border-gray-200 px-3 py-2 rounded text-sm text-gray-600 min-w-0">
+              <Calendar size={16} className="shrink-0" />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+                className="outline-none bg-transparent w-full min-w-0"
+                aria-label="From date"
+              />
+            </div>
+            <div className="flex items-center gap-2 border border-gray-200 px-3 py-2 rounded text-sm text-gray-600 min-w-0">
+              <Calendar size={16} className="shrink-0" />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+                className="outline-none bg-transparent w-full min-w-0"
+                aria-label="To date"
+              />
+            </div>
 
-        <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
-          <div className="flex items-center gap-2 border border-gray-200 px-3 py-2 rounded text-sm text-gray-600">
-            <Calendar size={16} />
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(event) => setFromDate(event.target.value)}
-              className="outline-none bg-transparent"
-              aria-label="From date"
-            />
+            <div className="flex items-center border border-gray-200 rounded px-3 py-2 min-w-0">
+              <Search size={16} className="text-gray-400 flex-shrink-0" />
+              <input
+                placeholder="Search company or reference..."
+                className="ml-2 outline-none text-sm w-full min-w-0 bg-transparent"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "All" | Payment["status"])}
+              className="w-full border border-gray-200 px-3 py-2 rounded text-sm text-gray-700 bg-white min-w-0"
+            >
+              <option value="All">All statuses</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Failed">Failed</option>
+            </select>
+
+            <button className="w-full xl:w-auto flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors whitespace-nowrap min-w-[110px]">
+              <Download size={16} />
+              Export
+            </button>
           </div>
-          <div className="flex items-center gap-2 border border-gray-200 px-3 py-2 rounded text-sm text-gray-600">
-            <Calendar size={16} />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(event) => setToDate(event.target.value)}
-              className="outline-none bg-transparent"
-              aria-label="To date"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-          <div className="flex items-center border border-gray-200 rounded px-3 py-2 w-full sm:w-80 lg:w-96">
-            <Search size={16} className="text-gray-400 flex-shrink-0" />
-            <input
-              placeholder="Search company or reference..."
-              className="ml-2 outline-none text-sm w-full bg-transparent"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as "All" | Payment["status"])}
-            className="w-full sm:w-[140px] border border-gray-200 px-3 py-2 rounded text-sm text-gray-700 bg-white"
-          >
-            <option value="All">All statuses</option>
-            <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
-            <option value="Failed">Failed</option>
-          </select>
-
-          <button className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors">
-            <Download size={16} />
-            Export
-          </button>
         </div>
       </div>
 
@@ -379,6 +384,22 @@ export default function Payments() {
                 <button className="px-3 py-1 border border-gray-900 rounded bg-gray-900 text-white">
                   {safePage} / {totalPages}
                 </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1)
+                  .slice(Math.max(0, safePage - 2), Math.min(totalPages, safePage + 1))
+                  .map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={`px-3 py-1 border rounded transition-colors ${
+                        pageNumber === safePage
+                          ? "border-gray-900 bg-gray-900 text-white"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
                 <button
                   type="button"
                   disabled={safePage === totalPages}

@@ -1,73 +1,115 @@
 import { Search, Filter, Plus, Building2, CalendarDays, Eye, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import ServiceRecordModal from "../components/ServiceRecordModal";
+import ServiceRecordModal, { type ServiceRecordFormValue } from "../components/ServiceRecordModal";
 
 /* ================= TYPES ================= */
 
 type Service = {
+  id: string;
   name: string;
   code: string;
   company: string;
   date: string;
   status: "Completed" | "In Progress" | "Pending Review";
+  notes?: string;
 };
 
 /* ================= PAGE ================= */
 
 export default function DeliveredServices() {
   const [openRecordModal, setOpenRecordModal] = useState(false);
-
-  const services: Service[] = [
+  const [services, setServices] = useState<Service[]>([
     {
+      id: "1",
       name: "Comprehensive Security Audit",
       code: "SRV-2023-089",
       company: "Acme Corporation",
       date: "Oct 24, 2023",
       status: "Completed",
+      notes: "",
     },
     {
+      id: "2",
       name: "Cloud Infrastructure Migration",
       code: "SRV-2023-090",
       company: "TechNova Solutions",
       date: "Oct 22, 2023",
       status: "In Progress",
+      notes: "",
     },
     {
+      id: "3",
       name: "Executive Leadership Training",
       code: "SRV-2023-091",
       company: "Global Industries Ltd.",
       date: "Oct 18, 2023",
       status: "Completed",
+      notes: "",
     },
     {
+      id: "4",
       name: "Annual Software License Renewal",
       code: "SRV-2023-092",
       company: "Stark Enterprises",
       date: "Oct 15, 2023",
       status: "Pending Review",
+      notes: "",
     },
     {
+      id: "5",
       name: "Custom CRM Implementation",
       code: "SRV-2023-093",
       company: "WayneTech",
       date: "Oct 10, 2023",
       status: "Completed",
+      notes: "",
     },
     {
+      id: "6",
       name: "Employee Onboarding Workshop",
       code: "SRV-2023-094",
       company: "Acme Corporation",
       date: "Oct 05, 2023",
       status: "Completed",
+      notes: "",
     },
     {
+      id: "7",
       name: "Q4 Marketing Strategy Consulting",
       code: "SRV-2023-095",
       company: "Stark Enterprises",
       date: "Sep 28, 2023",
       status: "In Progress",
+      notes: "",
     },
-  ];
+  ]);
+  const [viewingService, setViewingService] = useState<Service | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+
+  const saveAddedRecord = (record: ServiceRecordFormValue) => {
+    setServices((prev) => [
+      {
+        id: `${Date.now()}`,
+        ...record,
+      },
+      ...prev,
+    ]);
+  };
+
+  const saveEditedRecord = (record: ServiceRecordFormValue) => {
+    if (!editingService) return;
+    setServices((prev) =>
+      prev.map((item) =>
+        item.id === editingService.id
+          ? {
+              ...item,
+              ...record,
+            }
+          : item,
+      ),
+    );
+    setEditingService(null);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -110,8 +152,8 @@ export default function DeliveredServices() {
       <div className="bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden">
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-gray-100">
-          {services.map((s, i) => (
-            <div key={i} className="p-4 space-y-3">
+          {services.map((s) => (
+            <div key={s.id} className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-sm text-gray-900 break-words">{s.name}</p>
@@ -130,10 +172,18 @@ export default function DeliveredServices() {
                 <span>{s.date}</span>
               </div>
               <div className="flex items-center gap-3 pt-1">
-                <button className="text-gray-400 hover:text-gray-600 transition-colors" aria-label={`View ${s.name}`}>
+                <button
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={`View ${s.name}`}
+                  onClick={() => setViewingService(s)}
+                >
                   <Eye size={15} />
                 </button>
-                <button className="text-gray-400 hover:text-gray-600 transition-colors" aria-label={`Edit ${s.name}`}>
+                <button
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={`Edit ${s.name}`}
+                  onClick={() => setEditingService(s)}
+                >
                   <Pencil size={15} />
                 </button>
                 <button className="text-gray-400 hover:text-red-500 transition-colors" aria-label={`Delete ${s.name}`}>
@@ -167,8 +217,8 @@ export default function DeliveredServices() {
 
             {/* BODY */}
             <tbody>
-              {services.map((s, i) => (
-                <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+              {services.map((s) => (
+                <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50">
 
                   {/* SERVICE */}
                   <td className="p-4">
@@ -202,10 +252,18 @@ export default function DeliveredServices() {
                   {/* ACTIONS */}
                   <td className="p-4">
                     <div className="flex items-center gap-2.5">
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors" aria-label={`View ${s.name}`}>
+                      <button
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label={`View ${s.name}`}
+                        onClick={() => setViewingService(s)}
+                      >
                         <Eye size={15} />
                       </button>
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors" aria-label={`Edit ${s.name}`}>
+                      <button
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label={`Edit ${s.name}`}
+                        onClick={() => setEditingService(s)}
+                      >
                         <Pencil size={15} />
                       </button>
                       <button className="text-gray-400 hover:text-red-500 transition-colors" aria-label={`Delete ${s.name}`}>
@@ -232,7 +290,26 @@ export default function DeliveredServices() {
       </div>
 
       {openRecordModal && (
-        <ServiceRecordModal onClose={() => setOpenRecordModal(false)} />
+        <ServiceRecordModal
+          mode="add"
+          onClose={() => setOpenRecordModal(false)}
+          onSave={saveAddedRecord}
+        />
+      )}
+      {viewingService && (
+        <ServiceRecordModal
+          mode="view"
+          initialRecord={viewingService}
+          onClose={() => setViewingService(null)}
+        />
+      )}
+      {editingService && (
+        <ServiceRecordModal
+          mode="edit"
+          initialRecord={editingService}
+          onSave={saveEditedRecord}
+          onClose={() => setEditingService(null)}
+        />
       )}
     </div>
   );

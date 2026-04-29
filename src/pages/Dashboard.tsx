@@ -81,16 +81,16 @@ type ActivityItem = {
   color: string;
   action: string;
   date: string;
-  amount: string;
+  rawDate?: string;
   status: ActivityStatus;
 };
 
 const activities: ActivityItem[] = [
-  { id: "101", company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     amount: "$500", status: "Success" },
-  { id: "102", company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     amount: "-",    status: "Pending" },
-  { id: "103", company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", amount: "$250", status: "Failed"  },
-  { id: "104", company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", amount: "-",    status: "Info"    },
-  { id: "105", company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        amount: "-",    status: "Warning" },
+  { id: "101", company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     status: "Success" },
+  { id: "102", company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     status: "Pending" },
+  { id: "103", company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", status: "Failed"  },
+  { id: "104", company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", status: "Info"    },
+  { id: "105", company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        status: "Warning" },
 ];
 
 type RecentActivityResponse = {
@@ -189,7 +189,6 @@ function ActivityRowSkeleton() {
       </td>
       <td className="py-4"><div className="h-3 bg-gray-200 rounded w-28" /></td>
       <td className="py-4"><div className="h-3 bg-gray-200 rounded w-24" /></td>
-      <td className="py-4"><div className="h-3 bg-gray-200 rounded w-14" /></td>
       <td className="py-4 text-right"><div className="h-5 bg-gray-200 rounded-full w-16 ml-auto" /></td>
     </tr>
   );
@@ -291,6 +290,12 @@ export default function Dashboard() {
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>(activities);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [periodFilter, setPeriodFilter] = useState<"ytd" | "last30" | "last90" | "last6m">("ytd");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [activityStatusFilter, setActivityStatusFilter] = useState<"all" | ActivityStatus>("all");
+  const [activityPage, setActivityPage] = useState(1);
+  const activityPageSize = 5;
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -316,7 +321,7 @@ export default function Dashboard() {
           color: activityColorByType[item.type] ?? "#6b7280",
           action: item.description,
           date: formatActivityDate(item.date),
-          amount: "-",
+          rawDate: item.date,
           status: activityStatusByType[item.type] ?? "Info",
         }));
         setRecentActivities(mappedActivities.length > 0 ? mappedActivities : activities);
@@ -340,23 +345,106 @@ export default function Dashboard() {
     [summary.activeMembers, summary.totalMembers],
   );
 
+  const periodStartDate = useMemo(() => {
+    const now = new Date();
+    if (periodFilter === "last30") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 30);
+      return d;
+    }
+    if (periodFilter === "last90") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 90);
+      return d;
+    }
+    if (periodFilter === "last6m") {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 5, 1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    return new Date(now.getFullYear(), 0, 1);
+  }, [periodFilter]);
+
+  const filteredRequestTrend = useMemo(() => {
+    const selected = selectedDate ? new Date(`${selectedDate}T00:00:00`) : null;
+    return requestTrend.filter((item) => {
+      const [year, month] = item.month.split("-").map(Number);
+      if (!year || !month) return false;
+      const monthDate = new Date(year, month - 1, 1);
+      const inPeriod = monthDate >= periodStartDate;
+      const matchesDate =
+        !selected ||
+        (monthDate.getFullYear() === selected.getFullYear() && monthDate.getMonth() === selected.getMonth());
+      return inPeriod && matchesDate;
+    });
+  }, [periodStartDate, requestTrend, selectedDate]);
+
+  const filteredPartnerTrend = useMemo(() => {
+    const selected = selectedDate ? new Date(`${selectedDate}T00:00:00`) : null;
+    return partnerTrend.filter((item) => {
+      const [year, month] = item.month.split("-").map(Number);
+      if (!year || !month) return false;
+      const monthDate = new Date(year, month - 1, 1);
+      const inPeriod = monthDate >= periodStartDate;
+      const matchesDate =
+        !selected ||
+        (monthDate.getFullYear() === selected.getFullYear() && monthDate.getMonth() === selected.getMonth());
+      return inPeriod && matchesDate;
+    });
+  }, [periodStartDate, partnerTrend, selectedDate]);
+
   const serviceRequestChartData = useMemo(
     () =>
-      requestTrend.map((item) => ({
+      filteredRequestTrend.map((item) => ({
         month: item.month.slice(5),
         requests: item.count,
       })),
-    [requestTrend],
+    [filteredRequestTrend],
   );
 
   const partnersChartData = useMemo(
     () =>
-      partnerTrend.map((item) => ({
+      filteredPartnerTrend.map((item) => ({
         month: item.month.slice(5),
         partners: item.count,
       })),
-    [partnerTrend],
+    [filteredPartnerTrend],
   );
+
+  const filteredActivities = useMemo(() => {
+    const selected = selectedDate ? new Date(`${selectedDate}T00:00:00`) : null;
+    return recentActivities.filter((item) => {
+      const statusMatch = activityStatusFilter === "all" || item.status === activityStatusFilter;
+      if (!statusMatch) return false;
+      if (!selected) return true;
+      if (!item.rawDate) return true;
+      const activityDate = new Date(item.rawDate);
+      return (
+        activityDate.getFullYear() === selected.getFullYear() &&
+        activityDate.getMonth() === selected.getMonth() &&
+        activityDate.getDate() === selected.getDate()
+      );
+    });
+  }, [activityStatusFilter, recentActivities, selectedDate]);
+
+  useEffect(() => {
+    setActivityPage(1);
+  }, [activityStatusFilter, selectedDate]);
+
+  const activityTotalPages = Math.max(1, Math.ceil(filteredActivities.length / activityPageSize));
+
+  const paginatedActivities = useMemo(() => {
+    const start = (activityPage - 1) * activityPageSize;
+    return filteredActivities.slice(start, start + activityPageSize);
+  }, [activityPage, filteredActivities]);
+
+  const periodLabel = useMemo(() => {
+    if (periodFilter === "last30") return "Last 30 days";
+    if (periodFilter === "last90") return "Last 90 days";
+    if (periodFilter === "last6m") return "Last 6 months";
+    return "YTD";
+  }, [periodFilter]);
 
   return (
     <div className="space-y-6">
@@ -381,16 +469,59 @@ export default function Dashboard() {
 
       {/* Filter Bar */}
       <div className="bg-white rounded-md border border-gray-200 shadow-sm px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <button className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors">
-          <Filter size={14} /> Filter
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu((prev) => !prev)}
+            className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            <Filter size={14} /> Filter
+          </button>
+          {showFilterMenu ? (
+            <div className="absolute left-0 top-full z-20 mt-2 w-48 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
+              <p className="px-1 pb-1 text-[11px] font-semibold text-gray-500">Activity status</p>
+              {(["all", "Success", "Pending", "Failed", "Info", "Warning"] as const).map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => {
+                    setActivityStatusFilter(status);
+                    setShowFilterMenu(false);
+                  }}
+                  className={`block w-full rounded-sm px-2 py-1.5 text-left text-xs ${
+                    activityStatusFilter === status ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {status === "all" ? "All statuses" : status}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
-          <button className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors">
-            <Calendar size={14} /> YTD (Jan - Jul)
-          </button>
-          <button className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors">
-            <Calendar size={14} /> Select Date
-          </button>
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md">
+            <Calendar size={14} />
+            <select
+              value={periodFilter}
+              onChange={(event) => setPeriodFilter(event.target.value as "ytd" | "last30" | "last90" | "last6m")}
+              className="bg-transparent outline-none"
+            >
+              <option value="ytd">YTD</option>
+              <option value="last30">Last 30 days</option>
+              <option value="last90">Last 90 days</option>
+              <option value="last6m">Last 6 months</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md">
+            <Calendar size={14} />
+            <span className="text-gray-500">Select Date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => setSelectedDate(event.target.value)}
+              className="bg-transparent outline-none text-xs sm:text-sm"
+            />
+          </label>
         </div>
       </div>
 
@@ -442,7 +573,7 @@ export default function Dashboard() {
             <>
               <h3 className="font-bold text-gray-900 text-sm sm:text-base">Service Requests</h3>
               <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">
-                Last 6 months ({averageDeliveryDays} avg delivery days)
+                {periodLabel} ({averageDeliveryDays} avg delivery days)
               </p>
               <div className="-ml-2 sm:-ml-1">
                 <ResponsiveContainer width="100%" height={170}>
@@ -468,7 +599,7 @@ export default function Dashboard() {
           {isLoadingAnalytics ? <ChartSkeleton /> : (
             <>
               <h3 className="font-bold text-gray-900 text-sm sm:text-base">Partner Growth</h3>
-              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in last 6 months</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5 mb-3">Partners created in {periodLabel.toLowerCase()}</p>
               <div className="-ml-2 sm:-ml-1">
                 <ResponsiveContainer width="100%" height={170}>
                   <AreaChart data={partnersChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
@@ -509,7 +640,7 @@ export default function Dashboard() {
         <div className="md:hidden space-y-3">
           {isLoadingAnalytics
             ? Array.from({ length: 3 }).map((_, i) => <ActivityCardSkeleton key={i} />)
-            : recentActivities.map((item) => (
+            : paginatedActivities.map((item) => (
                 <div key={item.id} className="rounded-md border border-gray-100 p-3">
                   <div className="flex items-center gap-3 mb-2">
                     <div
@@ -544,14 +675,13 @@ export default function Dashboard() {
                 <th className="text-left py-3 text-xs font-semibold text-gray-400 tracking-wider">COMPANY / MEMBER</th>
                 <th className="text-left py-3 text-xs font-semibold text-gray-400 tracking-wider">ACTION</th>
                 <th className="text-left py-3 text-xs font-semibold text-gray-400 tracking-wider">DATE & TIME</th>
-                <th className="text-left py-3 text-xs font-semibold text-gray-400 tracking-wider">AMOUNT</th>
                 <th className="text-right py-3 text-xs font-semibold text-gray-400 tracking-wider">STATUS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoadingAnalytics
                 ? Array.from({ length: 4 }).map((_, i) => <ActivityRowSkeleton key={i} />)
-                : recentActivities.map((item) => (
+                : paginatedActivities.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
@@ -569,7 +699,6 @@ export default function Dashboard() {
                   </td>
                   <td className="py-4 text-gray-600">{item.action}</td>
                   <td className="py-4 text-gray-500">{item.date}</td>
-                  <td className="py-4 font-semibold text-gray-800">{item.amount}</td>
                   <td className="py-4 text-right">
                     <StatusBadge status={item.status} />
                   </td>
@@ -579,6 +708,50 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+
+        {!isLoadingAnalytics && filteredActivities.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-gray-500">
+              Showing {(activityPage - 1) * activityPageSize + 1} to{" "}
+              {Math.min(activityPage * activityPageSize, filteredActivities.length)} of {filteredActivities.length} activities
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActivityPage((prev) => Math.max(prev - 1, 1))}
+                disabled={activityPage === 1}
+                className="rounded-md border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              {Array.from({ length: activityTotalPages }).map((_, index) => {
+                const page = index + 1;
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setActivityPage(page)}
+                    className={`rounded-md px-2.5 py-1 text-xs ${
+                      page === activityPage
+                        ? "bg-gray-900 text-white"
+                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setActivityPage((prev) => Math.min(prev + 1, activityTotalPages))}
+                disabled={activityPage === activityTotalPages}
+                className="rounded-md border border-gray-200 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
     </div>

@@ -29,7 +29,8 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
     email: "",
     program: "",
     status: "",
-    timeframe: "",
+    fromDate: "",
+    toDate: "",
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -40,13 +41,14 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
   const handleSubmit = async () => {
     try {
       setError(null);
-      const [fromYearRaw, toYearRaw] = form.timeframe.split("-").map((value) => value.trim());
-      const fromYear = Number(fromYearRaw);
-      const toYear = Number(toYearRaw);
+      const fromDate = form.fromDate ? new Date(form.fromDate) : null;
+      const toDate = form.toDate ? new Date(form.toDate) : null;
+      const fromYear = fromDate ? fromDate.getFullYear() : Number.NaN;
+      const toYear = toDate ? toDate.getFullYear() : Number.NaN;
       const programStatus = mapStatusToApi(form.status);
 
       if (!form.name || !form.phone || !form.email || !form.program || !programStatus || !Number.isInteger(fromYear) || !Number.isInteger(toYear)) {
-        setError("Please complete all required fields with a valid timeframe (e.g. 2024-2025).");
+        setError("Please complete all required fields with valid From/To dates.");
         return;
       }
 
@@ -136,12 +138,20 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
               onChange={(v) => handleChange("status", v)}
               options={["Active", "Pending", "Closed"]}
             />
-            <Select
-              label="Program Timeframe *"
-              value={form.timeframe}
-              onChange={(v) => handleChange("timeframe", v)}
-              options={["2024-2025", "2025-2026"]}
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label="From *"
+                type="date"
+                value={form.fromDate}
+                onChange={(v) => handleChange("fromDate", v)}
+              />
+              <Input
+                label="To *"
+                type="date"
+                value={form.toDate}
+                onChange={(v) => handleChange("toDate", v)}
+              />
+            </div>
           </div>
 
           {/* Note */}
@@ -176,11 +186,13 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
 /* ✅ Input */
 function Input({
   label,
+  type = "text",
   value,
   onChange,
   placeholder,
 }: {
   label: string;
+  type?: "text" | "date" | "datetime-local";
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -189,6 +201,7 @@ function Input({
     <div>
       <label className="text-sm text-gray-600">{label}</label>
       <input
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

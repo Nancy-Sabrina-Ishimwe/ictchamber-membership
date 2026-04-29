@@ -22,6 +22,7 @@ type ActivityItem = {
   title: string;
   company: string;
   time: string;
+  occurredAt: string;
   icon: "delivered" | "request" | "member" | "maintenance";
 };
 
@@ -59,6 +60,7 @@ export default function DeliveredServices() {
   });
   const [trendData, setTrendData] = useState<TrendItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [rangeDays, setRangeDays] = useState(30);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -75,6 +77,7 @@ export default function DeliveredServices() {
             title: activity.title,
             company: activity.company,
             time: formatRelativeTime(activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt),
+            occurredAt: activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt,
             icon: activity.status === "DELIVERED" ? "delivered" : "request",
           })),
         );
@@ -98,6 +101,34 @@ export default function DeliveredServices() {
     [summary],
   );
 
+  const cutoffDate = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - rangeDays);
+    return cutoff;
+  }, [rangeDays]);
+
+  const filteredTrendData = useMemo(
+    () =>
+      trendData.filter((item) => {
+        const [year, month] = item.month.split("-").map(Number);
+        if (!year || !month) return false;
+        const bucketDate = new Date(year, month - 1, 1);
+        return bucketDate >= cutoffDate;
+      }),
+    [cutoffDate, trendData],
+  );
+
+  const filteredActivities = useMemo(
+    () =>
+      activities.filter((item) => {
+        const activityDate = new Date(item.occurredAt);
+        if (Number.isNaN(activityDate.getTime())) return false;
+        return activityDate >= cutoffDate;
+      }),
+    [activities, cutoffDate],
+  );
+
   return (
     <div className="space-y-4 sm:space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -108,10 +139,20 @@ export default function DeliveredServices() {
           </p>
         </div>
         <div className="flex w-full sm:w-auto gap-2">
-          <button className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-xs sm:text-sm bg-white hover:bg-gray-50 transition-colors">
+          <label className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-xs sm:text-sm bg-white hover:bg-gray-50 transition-colors cursor-pointer">
             <Calendar size={14} />
-            Last 30 Days
-          </button>
+            <select
+              value={rangeDays}
+              onChange={(event) => setRangeDays(Number(event.target.value))}
+              className="bg-transparent outline-none"
+              aria-label="Select services dashboard date range"
+            >
+              <option value={7}>Last 7 Days</option>
+              <option value={30}>Last 30 Days</option>
+              <option value={90}>Last 90 Days</option>
+              <option value={180}>Last 180 Days</option>
+            </select>
+          </label>
           <button
             onClick={() => navigate("/admin/services/delivered")}
             className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-md px-3 py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-400 font-medium transition-colors"
@@ -139,7 +180,7 @@ export default function DeliveredServices() {
           <p className="text-xs text-gray-500 mt-1">Requests vs. Deliveries over the last 6 months.</p>
           <div className="mt-3">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={trendData} barSize={22}>
+              <BarChart data={filteredTrendData} barSize={22}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#6b7280" }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#6b7280" }} width={28} />
@@ -165,7 +206,7 @@ export default function DeliveredServices() {
             {!isLoading && activities.length === 0 ? (
               <p className="text-xs text-gray-500">No recent service activity found.</p>
             ) : null}
-            {activities.map((item) => (
+            {filteredActivities.map((item) => (
               <ActivityRow key={item.id} item={item} />
             ))}
           </div>

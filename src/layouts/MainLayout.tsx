@@ -27,6 +27,7 @@ export default function MainLayout({ children }: Props) {
     switch (location.pathname) {
       case ROUTES.ADMIN:                       return 'Dashboard Overview';
       case ROUTES.ADMIN_MEMBERS:               return 'Member Directory';
+      case ROUTES.ADMIN_REGISTRATIONS:         return 'Recent Registrations';
       case ROUTES.ADMIN_PAYMENTS:              return 'Payments Ledger';
       case ROUTES.ADMIN_MESSAGING:             return 'Bulk Messaging';
       case ROUTES.ADMIN_PARTNERS:
