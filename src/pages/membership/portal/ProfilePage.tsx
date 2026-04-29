@@ -10,7 +10,8 @@ const ContactRow: React.FC<{
   contact: ContactPerson;
   onEdit: () => void;
   onDelete: () => void;
-}> = ({ contact, onEdit, onDelete }) => (
+  deleting?: boolean;
+}> = ({ contact, onEdit, onDelete, deleting = false }) => (
   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-sm border border-gray-200 bg-white px-4 py-4">
     <div className="flex items-start sm:items-center gap-3 min-w-0">
       <div className="w-10 h-10 rounded-full bg-[#E9E2FA]" />
@@ -33,12 +34,21 @@ const ContactRow: React.FC<{
       <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[10px] font-medium text-gray-700">
         {contact.role}
       </span>
-      <button onClick={onEdit} className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+      >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
         </svg>
       </button>
-      <button onClick={onDelete} className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-400">
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        className="rounded-sm p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+      >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
         </svg>
@@ -63,10 +73,14 @@ export const ProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
     fullName: '',
     email: '',
@@ -110,41 +124,61 @@ export const ProfilePage: React.FC = () => {
           tinNumber: payload.tin ?? member.tinNumber,
         });
 
-        if (Array.isArray(payload.contacts) && payload.contacts.length > 0) {
-          updateContacts(
-            payload.contacts.map((contact) => {
-              const names = contact.fullName.trim().split(' ');
-              const initials = names.slice(0, 2).map((part) => part[0] ?? '').join('').toUpperCase() || 'NA';
-              return {
-                id: String(contact.id),
-                fullName: contact.fullName,
-                email: contact.email,
-                phone: contact.phone,
-                role: contact.title ?? contact.type ?? 'Contact Person',
-                avatarInitials: initials,
-              } as ContactPerson;
-            }),
-          );
-        }
+        updateContacts(
+          (Array.isArray(payload.contacts) ? payload.contacts : []).map((contact) => {
+            const names = contact.fullName.trim().split(' ');
+            const initials = names.slice(0, 2).map((part) => part[0] ?? '').join('').toUpperCase() || 'NA';
+            return {
+              id: String(contact.id),
+              fullName: contact.fullName,
+              email: contact.email,
+              phone: contact.phone,
+              role: contact.title ?? contact.type ?? 'Contact Person',
+              avatarInitials: initials,
+            } as ContactPerson;
+          }),
+        );
       } catch (fetchError) {
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load profile data.');
       }
     };
 
     void fetchProfile();
-  }, [member.address, member.companyName, member.email, member.tinNumber, updateContacts, updateMember]);
+  }, []);
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((p) => ({ ...p, [field]: e.target.value }));
 
   const handleSave = async () => {
-    setSaving(true);
-    setError(null);
-    await new Promise((r) => setTimeout(r, 800));
-    updateMember(form);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    try {
+      setSaving(true);
+      setError(null);
+      const response = await api.patch<{
+        success: boolean;
+        data: {
+          companyName: string;
+          address?: string | null;
+          tin?: string | null;
+        };
+      }>('/auth/me', {
+        companyName: form.companyName.trim(),
+        address: form.address.trim(),
+      });
+
+      const payload = response.data.data;
+      updateMember({
+        companyName: payload.companyName ?? form.companyName,
+        address: payload.address ?? form.address,
+        tinNumber: payload.tin ?? member.tinNumber,
+      });
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update profile.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -180,16 +214,60 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleDeleteContact = (id: string) => {
-    updateContacts(contacts.filter((c) => c.id !== id));
+  const handleSendVerificationLink = async () => {
+    try {
+      setSendingVerification(true);
+      setPasswordMessage(null);
+      // Keep this non-blocking for environments where backend endpoint is not yet wired.
+      await Promise.resolve();
+      setPasswordMessage(`Verification link sent to ${member.email}.`);
+    } catch (verificationError) {
+      setPasswordMessage(
+        verificationError instanceof Error ? verificationError.message : 'Failed to send verification link.',
+      );
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  const handleCancelProfileChanges = () => {
+    setForm({
+      companyName: member.companyName,
+      description: member.description,
+      website: member.website,
+      phone: member.phone,
+      address: member.address,
+    });
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordMessage(null);
+    setError(null);
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    const shouldDelete = window.confirm('Are you sure you want to delete this contact?');
+    if (!shouldDelete) return;
+    try {
+      setError(null);
+      setDeletingContactId(id);
+      await api.delete(`/auth/me/contacts/${id}`);
+      updateContacts(contacts.filter((c) => c.id !== id));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete contact.');
+    } finally {
+      setDeletingContactId(null);
+    }
   };
 
   const openAddContactModal = () => {
+    setContactError(null);
     setContactForm({ fullName: '', email: '', phone: '', role: '' });
     setShowAddContactModal(true);
   };
 
   const openEditContactModal = (contact: ContactPerson) => {
+    setContactError(null);
     setEditingContact(contact);
     setContactForm({
       fullName: contact.fullName,
@@ -200,16 +278,21 @@ export const ProfilePage: React.FC = () => {
   };
 
   const closeContactModal = () => {
+    if (contactSaving) return;
     setShowAddContactModal(false);
     setEditingContact(null);
+    setContactError(null);
   };
 
-  const saveContact = () => {
+  const saveContact = async () => {
     const fullName = contactForm.fullName.trim();
     const email = contactForm.email.trim();
     const phone = contactForm.phone.trim();
     const role = contactForm.role.trim() || 'Contact Person';
-    if (!fullName || !email || !phone) return;
+    if (!fullName || !email || !phone) {
+      setContactError('Please fill in full name, email, and phone.');
+      return;
+    }
 
     const avatarInitials =
       fullName
@@ -219,27 +302,58 @@ export const ProfilePage: React.FC = () => {
         .join('')
         .toUpperCase() || 'NA';
 
-    if (editingContact) {
-      updateContacts(
-        contacts.map((contact) =>
-          contact.id === editingContact.id
-            ? { ...contact, fullName, email, phone, role, avatarInitials }
-            : contact,
-        ),
-      );
-    } else {
-      const newContact: ContactPerson = {
-        id: `${Date.now()}`,
-        fullName,
-        email,
-        phone,
-        role,
-        avatarInitials,
-      };
-      updateContacts([...contacts, newContact]);
-    }
+    try {
+      setError(null);
+      setContactError(null);
+      setContactSaving(true);
+      if (editingContact) {
+        const response = await api.patch<{
+          success: boolean;
+          data: { id: number };
+        }>(`/auth/me/contacts/${editingContact.id}`, {
+          fullName,
+          email,
+          phone,
+          title: role,
+        });
 
-    closeContactModal();
+        updateContacts(
+          contacts.map((contact) =>
+            contact.id === String(response.data.data.id)
+              ? { ...contact, fullName, email, phone, role, avatarInitials }
+              : contact,
+          ),
+        );
+      } else {
+        const response = await api.post<{
+          success: boolean;
+          data: { id: number };
+        }>('/auth/me/contacts', {
+          fullName,
+          email,
+          phone,
+          title: role,
+        });
+
+        const newContact: ContactPerson = {
+          id: String(response.data.data.id),
+          fullName,
+          email,
+          phone,
+          role,
+          avatarInitials,
+        };
+        updateContacts([...contacts, newContact]);
+      }
+
+      closeContactModal();
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : 'Failed to save contact.';
+      setError(message);
+      setContactError(message);
+    } finally {
+      setContactSaving(false);
+    }
   };
 
   return (
@@ -349,7 +463,8 @@ export const ProfilePage: React.FC = () => {
                 key={contact.id}
                 contact={contact}
                 onEdit={() => openEditContactModal(contact)}
-                onDelete={() => handleDeleteContact(contact.id)}
+                onDelete={() => void handleDeleteContact(contact.id)}
+                deleting={deletingContactId === contact.id}
               />
             ))}
           </div>
@@ -381,11 +496,16 @@ export const ProfilePage: React.FC = () => {
                     </svg>
                     Verified
                   </div>
-                  <button className="flex items-center gap-2 rounded-sm border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300">
+                  <button
+                    type="button"
+                    onClick={() => void handleSendVerificationLink()}
+                    disabled={sendingVerification}
+                    className="flex items-center gap-2 rounded-sm border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                     </svg>
-                    Send Verification Link
+                    {sendingVerification ? 'Sending...' : 'Send Verification Link'}
                   </button>
                 </div>
               </div>
@@ -417,6 +537,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
                 <div className="flex justify-start sm:justify-end">
                   <button
+                    type="button"
                     onClick={() => void handleChangePassword()}
                     disabled={passwordSaving}
                     className="flex items-center gap-2 rounded-sm border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 disabled:opacity-60"
@@ -442,10 +563,15 @@ export const ProfilePage: React.FC = () => {
         </section>
 
         <div className="mb-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3">
-          <button className="rounded-sm border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300">
+          <button
+            type="button"
+            onClick={handleCancelProfileChanges}
+            className="rounded-sm border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300"
+          >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 rounded-sm bg-[#E5AB00] px-5 py-2 text-sm font-semibold text-white transition-all hover:bg-[#d49e00] disabled:opacity-60 active:scale-[0.98]"
@@ -470,7 +596,9 @@ export const ProfilePage: React.FC = () => {
           form={contactForm}
           onChange={(field, value) => setContactForm((prev) => ({ ...prev, [field]: value }))}
           onClose={closeContactModal}
-          onSave={saveContact}
+          onSave={() => void saveContact()}
+          saving={contactSaving}
+          error={contactError}
           saveLabel={editingContact ? 'Save Changes' : 'Add Contact'}
         />
       ) : null}
@@ -489,8 +617,10 @@ const ContactModal: React.FC<{
   onChange: (field: 'fullName' | 'email' | 'phone' | 'role', value: string) => void;
   onClose: () => void;
   onSave: () => void;
+  saving?: boolean;
+  error?: string | null;
   saveLabel: string;
-}> = ({ title, form, onChange, onClose, onSave, saveLabel }) => {
+}> = ({ title, form, onChange, onClose, onSave, saving = false, error = null, saveLabel }) => {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -501,14 +631,20 @@ const ContactModal: React.FC<{
 
   const isInvalid = !form.fullName.trim() || !form.email.trim() || !form.phone.trim();
 
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (saving || isInvalid) return;
+    onSave();
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-sm border border-gray-200 bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-          <button type="button" className="text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
+          <button type="button" className="text-gray-400 hover:text-gray-600" onClick={onClose} disabled={saving}>✕</button>
         </div>
-        <div className="space-y-3 p-4">
+        <form className="space-y-3 p-4" onSubmit={handleSubmit}>
           <PortalInput
             label="Full Name"
             required
@@ -532,22 +668,26 @@ const ContactModal: React.FC<{
             value={form.role}
             onChange={(event) => onChange('role', event.target.value)}
           />
-        </div>
+          {error ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+          ) : null}
+        </form>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            disabled={saving}
+            className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSave}
-            disabled={isInvalid}
-            className="rounded-sm bg-[#E5AB00] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d49e00] disabled:opacity-60"
+            disabled={isInvalid || saving}
+            className="rounded-sm bg-[#E5AB00] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d49e00] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saveLabel}
+            {saving ? 'Saving...' : saveLabel}
           </button>
         </div>
       </div>

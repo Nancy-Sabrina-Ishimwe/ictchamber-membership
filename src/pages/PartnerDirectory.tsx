@@ -11,6 +11,12 @@ type Partner = {
   program: string;
   status: "Incoming" | "Ongoing" | "Complete";
   timeframe: string;
+  contactNumber: string;
+  fromYear: number;
+  toYear: number;
+  fromDate: string;
+  toDate: string;
+  programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
 };
 
 type PartnerApiItem = {
@@ -22,6 +28,8 @@ type PartnerApiItem = {
   programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
   fromYear: number;
   toYear: number;
+  fromDate?: string | null;
+  toDate?: string | null;
 };
 
 type PartnersApiResponse = {
@@ -42,6 +50,35 @@ function mapStatus(status: PartnerApiItem["programStatus"]): Partner["status"] {
   return "Ongoing";
 }
 
+function mapStatusToApi(status: Partner["status"]): PartnerApiItem["programStatus"] {
+  if (status === "Incoming") return "INCOMING";
+  if (status === "Complete") return "COMPLETED";
+  return "ONGOING";
+}
+
+function validateTimeframeForStatus(
+  status: Partner["status"],
+  fromYear: number,
+  toYear: number,
+): string | null {
+  if (fromYear > toYear) return "From date cannot be later than To date.";
+  const currentYear = new Date().getFullYear();
+  if (status === "Complete" && (fromYear === currentYear || toYear === currentYear)) {
+    return `For Complete status, current year (${currentYear}) is not allowed in timeframe.`;
+  }
+  return null;
+}
+
+function formatDateLabel(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
 function toPartner(apiItem: PartnerApiItem): Partner {
   return {
     id: apiItem.id,
@@ -51,6 +88,12 @@ function toPartner(apiItem: PartnerApiItem): Partner {
     program: apiItem.partnershipProgram,
     status: mapStatus(apiItem.programStatus),
     timeframe: `${apiItem.fromYear} - ${apiItem.toYear}`,
+    contactNumber: apiItem.contactNumber,
+    fromYear: apiItem.fromYear,
+    toYear: apiItem.toYear,
+    fromDate: apiItem.fromDate ? apiItem.fromDate.slice(0, 10) : `${apiItem.fromYear}-01-01`,
+    toDate: apiItem.toDate ? apiItem.toDate.slice(0, 10) : `${apiItem.toYear}-12-31`,
+    programStatus: apiItem.programStatus,
   };
 }
 
@@ -102,7 +145,8 @@ export default function PartnerDirectory() {
     contactEmail: "",
     program: "",
     status: "Incoming" as Partner["status"],
-    timeframe: "",
+    fromDate: "",
+    toDate: "",
   });
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const pageSize = 10;
@@ -194,28 +238,54 @@ export default function PartnerDirectory() {
       contactEmail: partner.contactEmail,
       program: partner.program,
       status: partner.status,
-      timeframe: partner.timeframe,
+      fromDate: partner.fromDate || `${partner.fromYear}-01-01`,
+      toDate: partner.toDate || `${partner.toYear}-12-31`,
     });
   };
 
-  const savePartnerEdit = () => {
+  const savePartnerEdit = async () => {
     if (!editPartner) return;
-    setPartners((prev) =>
-      prev.map((item) =>
-        item.id === editPartner.id
-          ? {
-              ...item,
-              name: editForm.name.trim() || item.name,
-              contactName: editForm.contactName.trim() || item.contactName,
-              contactEmail: editForm.contactEmail.trim() || item.contactEmail,
-              program: editForm.program.trim() || item.program,
-              status: editForm.status,
-              timeframe: editForm.timeframe.trim() || item.timeframe,
-            }
-          : item,
-      ),
-    );
-    setEditPartner(null);
+    try {
+      const parsedFrom = editForm.fromDate ? new Date(editForm.fromDate) : null;
+      const parsedTo = editForm.toDate ? new Date(editForm.toDate) : null;
+      const fromYear =
+        parsedFrom && !Number.isNaN(parsedFrom.getTime()) ? parsedFrom.getFullYear() : editPartner.fromYear;
+      const toYear =
+        parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo.getFullYear() : editPartner.toYear;
+      const timeframeError = validateTimeframeForStatus(editForm.status, fromYear, toYear);
+      if (timeframeError) {
+        setError(timeframeError);
+        return;
+      }
+
+      const payload = {
+        partnerName: editForm.name.trim() || editPartner.name,
+        contactNumber: editForm.contactName.trim() || editPartner.contactNumber,
+        email: editForm.contactEmail.trim() || editPartner.contactEmail,
+        partnershipProgram: editForm.program.trim() || editPartner.program,
+        programStatus: mapStatusToApi(editForm.status),
+        fromDate: editForm.fromDate,
+        toDate: editForm.toDate,
+        fromYear,
+        toYear,
+      };
+
+      const response = await api.put<{ success: boolean; data: PartnerApiItem }>(`/partners/${editPartner.id}`, payload);
+      setPartners((prev) =>
+        prev.map((item) =>
+          item.id === editPartner.id
+            ? {
+                ...toPartner(response.data.data),
+                fromDate: editForm.fromDate || `${fromYear}-01-01`,
+                toDate: editForm.toDate || `${toYear}-12-31`,
+              }
+            : item,
+        ),
+      );
+      setEditPartner(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to update partner.");
+    }
   };
 
   const deletePartner = async (id: number) => {
@@ -427,7 +497,12 @@ export default function PartnerDirectory() {
               <p><span className="text-gray-500">Email:</span> <span className="font-medium text-gray-900">{viewPartner.contactEmail}</span></p>
               <p><span className="text-gray-500">Program:</span> <span className="font-medium text-gray-900">{viewPartner.program}</span></p>
               <p><span className="text-gray-500">Status:</span> <span className={`font-medium text-gray-900 ${statusStyles[viewPartner.status]}`}>{viewPartner.status}</span></p>
-              <p><span className="text-gray-500">Timeframe:</span> <span className="font-medium text-gray-900">{viewPartner.timeframe}</span></p>
+              <p>
+                <span className="text-gray-500">Timeframe:</span>{" "}
+                <span className="font-medium text-gray-900">
+                  {formatDateLabel(viewPartner.fromDate)} - {formatDateLabel(viewPartner.toDate)}
+                </span>
+              </p>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-4 py-3">
               <button
@@ -497,12 +572,20 @@ export default function PartnerDirectory() {
               </div>
               <div className="sm:col-span-2">
                 <label className="text-xs text-gray-500">Timeframe</label>
-                <input
-                  value={editForm.timeframe}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, timeframe: event.target.value }))}
-                  className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
-                  placeholder="2024 - 2025"
-                />
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={editForm.fromDate}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, fromDate: event.target.value }))}
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={editForm.toDate}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, toDate: event.target.value }))}
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">

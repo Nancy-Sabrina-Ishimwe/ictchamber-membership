@@ -25,6 +25,11 @@ type MemberApiItem = {
   active: boolean;
   cluster?: { clusterName: string } | null;
   selectedTier?: { tierName: string } | null;
+  membershipPayments?: Array<{
+    amount: number;
+    paidAt?: string | null;
+    createdAt: string;
+  }>;
   subscriptions?: Array<{
     startDate: string;
   }>;
@@ -126,16 +131,22 @@ const formatDate = (rawDate?: string) => {
 };
 
 const mapMemberFromApi = (member: MemberApiItem): Member => ({
-  id: String(member.id),
-  name: member.companyName,
-  cluster: member.cluster?.clusterName ?? "-",
-  website: member.logoUrl ?? "-",
-  category: member.role,
-  tier: normalizeTier(member.selectedTier?.tierName),
-  status: member.active ? "Active" : "Inactive",
-  joinDate: formatDate(member.subscriptions?.[0]?.startDate),
-  lastPaymentAmount: "-",
-  lastPaymentDate: "-",
+  ...(() => {
+    const isPending = !member.active && !member.selectedTier;
+    const latestPayment = member.membershipPayments?.[0];
+    return {
+      id: String(member.id),
+      name: member.companyName,
+      cluster: member.cluster?.clusterName ?? "-",
+      website: member.logoUrl ?? "-",
+      category: member.role,
+      tier: normalizeTier(member.selectedTier?.tierName),
+      status: isPending ? "Pending" : (member.active ? "Active" : "Inactive"),
+      joinDate: formatDate(member.subscriptions?.[0]?.startDate),
+      lastPaymentAmount: latestPayment ? `RWF ${latestPayment.amount.toLocaleString()}` : "-",
+      lastPaymentDate: latestPayment ? formatDate(latestPayment.paidAt ?? latestPayment.createdAt) : "-",
+    } satisfies Member;
+  })(),
 });
 
 export default function Members() {

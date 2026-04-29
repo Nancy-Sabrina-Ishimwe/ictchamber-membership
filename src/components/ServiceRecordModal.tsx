@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Building2, CalendarDays, Check, ChevronDown, X } from "lucide-react";
+import { api } from "../lib/api";
 
 export type ServiceRecordFormValue = {
   name: string;
   code: string;
   company: string;
+  companies: string[];
+  deliveredServices: string[];
   date: string;
   status: "Completed" | "In Progress" | "Pending Review";
   notes?: string;
@@ -15,16 +18,8 @@ type Props = {
   onClose: () => void;
   mode?: "add" | "view" | "edit";
   initialRecord?: ServiceRecordFormValue | null;
-  onSave?: (record: ServiceRecordFormValue) => void;
+  onSave?: (record: ServiceRecordFormValue) => Promise<void> | void;
 };
-
-const COMPANY_OPTIONS = [
-  "Acme Corporation",
-  "TechNova Solutions",
-  "Global Industries Ltd.",
-  "Stark Enterprises",
-  "WayneTech",
-];
 
 const STATUS_OPTIONS = ["Completed", "In Progress", "Pending Review"] as const;
 
@@ -49,13 +44,29 @@ export default function ServiceRecordModal({
 }: Props) {
   const readOnly = mode === "view";
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>(
-    initialRecord?.company ? [initialRecord.company] : ["Acme Corporation"],
+    initialRecord?.companies?.length
+      ? initialRecord.companies
+      : initialRecord?.company
+        ? [initialRecord.company]
+        : [],
   );
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
-  const [servicesDelivered, setServicesDelivered] = useState(initialRecord?.name ?? "");
+  const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    initialRecord?.deliveredServices?.length
+      ? initialRecord.deliveredServices
+      : initialRecord?.name
+        ? [initialRecord.name]
+        : [],
+  );
   const [deliveryDate, setDeliveryDate] = useState(initialRecord?.date ? toInputDate(initialRecord.date) : "");
   const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>(initialRecord?.status ?? "Completed");
   const [notes, setNotes] = useState(initialRecord?.notes ?? "");
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<string[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -65,9 +76,47 @@ export default function ServiceRecordModal({
     };
   }, []);
 
+  useEffect(() => {
+    if (readOnly) return;
+    const loadOptions = async () => {
+      try {
+        setIsLoadingOptions(true);
+        const [membersRes, servicesRes] = await Promise.all([
+          api.get<{ data?: Array<{ companyName?: string | null }> }>("/members"),
+          api.get<{ data?: Array<{ serviceName?: string | null; subtypes?: Array<{ name?: string | null }> }> }>("/services"),
+        ]);
+
+        const companies = (membersRes.data.data ?? [])
+          .map((item) => item.companyName?.trim() ?? "")
+          .filter((name): name is string => Boolean(name));
+        setCompanyOptions(Array.from(new Set(companies)).sort((a, b) => a.localeCompare(b)));
+
+        const services = (servicesRes.data.data ?? []).flatMap((service) => {
+          const serviceName = service.serviceName?.trim() ?? "";
+          const subtypes = (service.subtypes ?? [])
+            .map((subtype) => subtype.name?.trim() ?? "")
+            .filter(Boolean);
+          if (!serviceName) return [];
+          if (subtypes.length === 0) return [serviceName];
+          return subtypes.map((subtype) => `${serviceName} - ${subtype}`);
+        });
+        setServiceOptions(Array.from(new Set(services)).sort((a, b) => a.localeCompare(b)));
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "Failed to load form options.");
+      } finally {
+        setIsLoadingOptions(false);
+      }
+    };
+    void loadOptions();
+  }, [readOnly]);
+
   const availableCompanies = useMemo(
-    () => COMPANY_OPTIONS.filter((company) => !selectedCompanies.includes(company)),
-    [selectedCompanies]
+    () => companyOptions.filter((company) => !selectedCompanies.includes(company)),
+    [companyOptions, selectedCompanies]
+  );
+  const availableServices = useMemo(
+    () => serviceOptions.filter((service) => !selectedServices.includes(service)),
+    [serviceOptions, selectedServices]
   );
 
   const addCompany = (company: string) => {
@@ -81,26 +130,70 @@ export default function ServiceRecordModal({
     setSelectedCompanies((prev) => prev.filter((c) => c !== company));
   };
 
-  const handleSave = () => {
+  const addService = (serviceName: string) => {
+    if (readOnly) return;
+    setSelectedServices((prev) => [...prev, serviceName]);
+    setServiceDropdownOpen(false);
+  };
+
+  const removeService = (serviceName: string) => {
+    if (readOnly) return;
+    setSelectedServices((prev) => prev.filter((service) => service !== serviceName));
+  };
+
+  const handleSave = async () => {
     if (readOnly) {
       onClose();
       return;
     }
+    if (selectedCompanies.length === 0) {
+      setFormError("Please select at least one beneficiary company.");
+      return;
+    }
+    if (selectedServices.length === 0) {
+      setFormError("Please select at least one delivered service.");
+      return;
+    }
+    if (!deliveryDate) {
+      setFormError("Please provide a delivery date.");
+      return;
+    }
+    setFormError(null);
     const payload: ServiceRecordFormValue = {
-      name: servicesDelivered.trim() || "Untitled Service",
+      name: selectedServices.join(", "),
       code: initialRecord?.code ?? `SRV-${Date.now()}`,
       company: selectedCompanies[0] ?? "Unknown Company",
+      companies: selectedCompanies,
+      deliveredServices: selectedServices,
       date: toDisplayDate(deliveryDate),
       status,
       notes: notes.trim(),
     };
-    onSave?.(payload);
-    onClose();
+    try {
+      setIsSubmitting(true);
+      await onSave?.(payload);
+      onClose();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Failed to save record.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black/55 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-      <div className="bg-white w-full max-w-2xl rounded-md border border-gray-200 shadow-lg max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[9999] bg-black/55 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+      onClick={() => {
+        if (isSubmitting) return;
+        onClose();
+      }}
+      role="button"
+      tabIndex={-1}
+    >
+      <div
+        className="bg-white w-full max-w-2xl rounded-md border border-gray-200 shadow-lg max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -114,7 +207,12 @@ export default function ServiceRecordModal({
               </p>
             </div>
             <button
-              onClick={onClose}
+              type="button"
+              onClick={() => {
+                if (isSubmitting) return;
+                onClose();
+              }}
+              disabled={isSubmitting}
               className="text-gray-400 hover:text-gray-600 transition-colors"
               aria-label="Close add service record modal"
             >
@@ -131,7 +229,7 @@ export default function ServiceRecordModal({
                 </p>
                 <p>
                   <span className="text-gray-500">Service Name:</span>{" "}
-                  <span className="font-medium text-gray-900">{servicesDelivered || "-"}</span>
+                  <span className="font-medium text-gray-900">{selectedServices.join(", ") || "-"}</span>
                 </p>
                 <p>
                   <span className="text-gray-500">Beneficiary Company:</span>{" "}
@@ -170,6 +268,8 @@ export default function ServiceRecordModal({
               </div>
             ) : (
               <>
+                {formError ? <p className="text-xs text-red-600">{formError}</p> : null}
+                {isLoadingOptions ? <p className="text-xs text-gray-500">Loading form options...</p> : null}
                 <div>
                   <h3 className="text-base font-medium text-gray-900">Benefiting Companies</h3>
                   <p className="text-sm text-gray-500 mt-1">
@@ -244,12 +344,67 @@ export default function ServiceRecordModal({
                   <p className="text-sm text-gray-500 mt-1">
                     Choose the specific services rendered from the catalog.
                   </p>
-                  <textarea
-                    value={servicesDelivered}
-                    onChange={(event) => setServicesDelivered(event.target.value)}
-                    className="w-full mt-3 border border-gray-200 rounded-md px-3 py-2 text-sm min-h-20 resize-none"
-                    placeholder="Enter any relevant details or links to external reports here..."
-                  />
+                  <div className="relative mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setServiceDropdownOpen((prev) => !prev)}
+                      className="w-full border border-gray-200 rounded-md px-3 py-2 flex items-center justify-between gap-2 text-left"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        {selectedServices.length === 0 ? (
+                          <span className="text-sm text-gray-400">Select delivered services</span>
+                        ) : (
+                          selectedServices.map((serviceName) => (
+                            <span
+                              key={serviceName}
+                              className="inline-flex items-center gap-1 rounded-md bg-gray-100 text-gray-700 text-xs px-2 py-1"
+                            >
+                              <span className="max-w-[220px] truncate">{serviceName}</span>
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  removeService(serviceName);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    removeService(serviceName);
+                                  }
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                                aria-label={`Remove ${serviceName}`}
+                              >
+                                <X size={12} />
+                              </span>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+                    </button>
+
+                    {serviceDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-sm max-h-48 overflow-y-auto">
+                        {availableServices.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-gray-500">All services already selected.</p>
+                        ) : (
+                          availableServices.map((serviceName) => (
+                            <button
+                              key={serviceName}
+                              type="button"
+                              onClick={() => addService(serviceName)}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
+                            >
+                              {serviceName}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -298,18 +453,34 @@ export default function ServiceRecordModal({
 
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-1">
               <button
-                onClick={onClose}
-                className="w-full sm:w-auto px-5 py-2 border border-gray-200 rounded-md text-sm hover:bg-gray-50 transition-colors"
+                type="button"
+                onClick={() => {
+                  if (isSubmitting) return;
+                  onClose();
+                }}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto px-5 py-2 border border-gray-200 rounded-md text-sm hover:bg-gray-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {readOnly ? "Close" : "Cancel"}
               </button>
               {!readOnly ? (
                 <button
-                  onClick={handleSave}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-md text-sm font-medium transition-colors"
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-yellow-500 hover:bg-yellow-400 rounded-md text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <Check size={14} />
-                  {mode === "edit" ? "Save Changes" : "Save Record"}
+                  {isSubmitting ? (
+                    <>
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} />
+                      {mode === "edit" ? "Save Changes" : "Save Record"}
+                    </>
+                  )}
                 </button>
               ) : null}
             </div>

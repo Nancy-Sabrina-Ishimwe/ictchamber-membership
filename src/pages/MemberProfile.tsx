@@ -11,65 +11,43 @@ import {
 import { api } from "../lib/api";
 
 /* ============================================================
-   STATIC MOCK DATA
+   EMPTY STATE
 ============================================================ */
-const MEMBER = {
-  id: "ICT2024PN924",
-  name: "Hviewtech Group",
-  status: "Active" as const,
-  tier: "Platinum",
-  category: "Corporate Platinum",
-  cluster: "IT Hardware and Solutions",
-  location: "Kigali, Rwanda",
+const EMPTY_MEMBER = {
+  id: "-",
+  name: "-",
+  status: "Inactive" as const,
+  tier: "-",
+  category: "-",
+  cluster: "-",
+  location: "-",
   contact: {
-    name: "Jean Claude Niyomugabo",
-    title: "Chief Executive Officer",
-    email: "jc.niyomugabo@hviewtech.rw",
-    phone: "+250 788 123 456",
-    website: "www.hviewtech.com",
-    address: "Kigali Heights, 4th Floor, KG 7 Ave, Kigali, Rwanda",
+    name: "-",
+    title: "-",
+    email: "-",
+    phone: "-",
+    website: "-",
+    address: "-",
   },
   registration: {
-    tin: "102938475",
-    rdb: "102938475-RCA",
-    category: "Software Development",
-    memberId: "MEM-2024-0042",
+    tin: "-",
+    rdb: "-",
+    category: "-",
+    memberId: "-",
   },
-  documents: [
-    { name: "Certificate of Incorporation.pdf", size: "1.2 MB", date: "15 Mar 2021" },
-    { name: "RRA Tax Clearance 2024.pdf", size: "845 KB", date: "28 Feb 2024" },
-    { name: "Company Profile.pdf", size: "3.4 MB", date: "10 Jan 2024" },
-  ],
+  documents: [] as Array<{ name: string; size: string; date: string }>,
   membership: {
-    validFrom: "15 Mar 2021",
-    expiresOn: "15 Mar 2025",
-    daysRemaining: 378,
-    renewalNote: "Auto-renewal reminder scheduled for Feb 15, 2025",
+    validFrom: "-",
+    expiresOn: "-",
+    daysRemaining: 0,
+    renewalNote: "Membership subscription not active.",
   },
-  payments: [
-    { invoiceId: "INV-2024-089", date: "18 Jan 2025", description: "Annual Platinum Renewal (2024-2025)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2023-112", date: "18 Jan 2024", description: "Annual Platinum Renewal (2023-2024)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2022-045", date: "18 Jan 2023", description: "Annual Platinum Renewal (2022-2023)", amount: "1,000,000", status: "Paid" },
-  ],
-  allPayments: [
-    { invoiceId: "INV-2024-089", date: "18 Jan 2025", description: "Annual Platinum Renewal (2025-202)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2023-112", date: "18 Jan 2024", description: "Annual Platinum Renewal (2024-2025)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2022-045", date: "18 Jan 2023", description: "Annual Platinum Renewal (2023-2024)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2023-112", date: "18 Jan 2022", description: "Annual Platinum Renewal (2022-2023)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2022-045", date: "18 Jan 2021", description: "Annual Platinum Renewal (2021-2022)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2022-045", date: "18 Jan 2020", description: "Annual Platinum Renewal (2020-2022)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2022-045", date: "18 Jan 2019", description: "Annual Platinum Renewal (2019-2020)", amount: "1,000,000", status: "Paid" },
-    { invoiceId: "INV-2023-112", date: "18 Jan 2010", description: "Annual Platinum Renewal (2018-2020)", amount: "1,000,000", status: "Paid" },
-  ],
-  activity: [
-    { type: "payment",  label: "Payment Received",        description: "RWF 1,000,000 received for 2024-2025 term.",              time: "10 Mar 2024, 14:30" },
-    { type: "email",    label: "Automated Reminder Sent", description: "Pre-renewal reminder email dispatched to primary contact.", time: "01 Mar 2024, 09:00" },
-    { type: "document", label: "Document Verified",       description: "Updated Tax Clearance Certificate approved.",               time: "28 Feb 2024, 11:15" },
-    { type: "upgrade",  label: "Membership Upgraded",     description: "Upgraded from Gold to Corporate Platinum.",                 time: "15 Mar 2023, 10:00" },
-  ],
+  payments: [] as Array<{ invoiceId: string; date: string; description: string; amount: string; status: string }>,
+  allPayments: [] as Array<{ invoiceId: string; date: string; description: string; amount: string; status: string }>,
+  activity: [] as Array<{ type: string; label: string; description: string; time: string }>,
 };
 
-type MemberState = Omit<typeof MEMBER, "status"> & {
+type MemberState = Omit<typeof EMPTY_MEMBER, "status"> & {
   status: "Active" | "Inactive";
 };
 
@@ -225,7 +203,7 @@ export default function MemberProfile() {
   const [showMessage,  setShowMessage]  = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showLedger,   setShowLedger]   = useState(false);
-  const [member, setMember] = useState<MemberState>(MEMBER);
+  const [member, setMember] = useState<MemberState>(EMPTY_MEMBER);
   const [isLoading, setIsLoading] = useState(!!id);
   const [error, setError] = useState<string | null>(null);
 
@@ -247,28 +225,29 @@ export default function MemberProfile() {
           : 0;
 
         const mappedMember: MemberState = {
-          ...MEMBER,
+          ...EMPTY_MEMBER,
           id: String(payload.id),
-          name: payload.companyName || MEMBER.name,
+          name: payload.companyName || EMPTY_MEMBER.name,
           status: payload.active ? ("Active" as const) : ("Inactive" as const),
-          tier: payload.selectedTier?.tierName ?? MEMBER.tier,
-          category: payload.selectedTier?.tierName ? `${payload.selectedTier.tierName} Member` : MEMBER.category,
-          cluster: payload.cluster?.clusterName ?? MEMBER.cluster,
-          location: payload.subcluster?.name ?? payload.address ?? MEMBER.location,
+          tier: payload.selectedTier?.tierName ?? EMPTY_MEMBER.tier,
+          category: payload.selectedTier?.tierName ? `${payload.selectedTier.tierName} Member` : EMPTY_MEMBER.category,
+          cluster: payload.cluster?.clusterName ?? EMPTY_MEMBER.cluster,
+          location: payload.subcluster?.name ?? payload.address ?? EMPTY_MEMBER.location,
           contact: {
-            name: primaryContact?.fullName ?? payload.companyName ?? MEMBER.contact.name,
-            title: primaryContact?.title ?? MEMBER.contact.title,
-            email: primaryContact?.email ?? payload.email ?? MEMBER.contact.email,
-            phone: primaryContact?.phone ?? MEMBER.contact.phone,
-            website: payload.logoUrl ?? MEMBER.contact.website,
-            address: payload.address ?? MEMBER.contact.address,
+            name: primaryContact?.fullName ?? payload.companyName ?? EMPTY_MEMBER.contact.name,
+            title: primaryContact?.title ?? EMPTY_MEMBER.contact.title,
+            email: primaryContact?.email ?? payload.email ?? EMPTY_MEMBER.contact.email,
+            phone: primaryContact?.phone ?? EMPTY_MEMBER.contact.phone,
+            website: EMPTY_MEMBER.contact.website,
+            address: payload.address ?? EMPTY_MEMBER.contact.address,
           },
           registration: {
-            ...MEMBER.registration,
-            tin: payload.tin ?? MEMBER.registration.tin,
-            category: payload.cluster?.clusterName ?? MEMBER.registration.category,
+            ...EMPTY_MEMBER.registration,
+            tin: payload.tin ?? EMPTY_MEMBER.registration.tin,
+            category: payload.cluster?.clusterName ?? EMPTY_MEMBER.registration.category,
             memberId: String(payload.id),
           },
+          documents: [],
           membership: {
             validFrom: formatDate(latestSubscription?.startDate),
             expiresOn: formatDate(latestSubscription?.endDate),
@@ -293,7 +272,7 @@ export default function MemberProfile() {
             status: payment.status,
           })),
           activity: (payload.serviceRequests ?? []).slice(0, 5).map((request) => ({
-            type: "document",
+            type: request.status === "DELIVERED" ? "payment" : "document",
             label: `Service Request ${request.status}`,
             description: request.requestTitle,
             time: formatDateTime(request.updatedAt),

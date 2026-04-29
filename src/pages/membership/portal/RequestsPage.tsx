@@ -40,6 +40,7 @@ export const RequestsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [form, setForm] = useState({
     serviceCategoryId: '',
     serviceSubtypeId: '',
@@ -102,7 +103,11 @@ export const RequestsPage: React.FC = () => {
             data: Array<{
               id: number;
               requestTitle: string;
-              status: 'REQUESTED' | 'DELIVERED';
+              detailedDescription: string;
+              preferredContactMethod: string;
+              preferredDeliveryDate: string;
+              priorityLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+              status: string;
               createdAt: string;
               serviceCategory: { id: number; categoryName: string };
               serviceSubtype: { id: number; name: string };
@@ -138,14 +143,14 @@ export const RequestsPage: React.FC = () => {
               month: 'short',
               year: 'numeric',
             }).format(new Date(item.createdAt)),
-            status: item.status === 'DELIVERED' ? 'completed' : 'pending',
+            status: mapApiStatus(item.status),
             assignedOfficer: item.benefittingMember?.companyName ?? 'Pending Assignment',
             serviceCategoryId: item.serviceCategory.id,
             serviceSubtypeId: item.serviceSubtype.id,
-            detailedDescription: '',
-            preferredContactMethod: 'Email',
-            preferredDeliveryDate: '',
-            priorityLevel: 'MEDIUM',
+            detailedDescription: item.detailedDescription,
+            preferredContactMethod: item.preferredContactMethod,
+            preferredDeliveryDate: toDateInput(item.preferredDeliveryDate),
+            priorityLevel: item.priorityLevel,
           })),
         );
       } catch (fetchError) {
@@ -300,34 +305,85 @@ export const RequestsPage: React.FC = () => {
     });
   };
 
-  const saveEditRequest = () => {
+  const saveEditRequest = async () => {
     if (!editingRequest) return;
-    const category = services.find((service) => service.id === Number(editForm.serviceCategoryId));
-    const subtype = serviceSubtypes.find((item) => item.id === Number(editForm.serviceSubtypeId));
-    setRequests((prev) =>
-      prev.map((item) =>
-        item.id === editingRequest.id
-          ? {
-              ...item,
-              title: editForm.requestTitle.trim() || item.title,
-              serviceCategoryId: Number(editForm.serviceCategoryId) || item.serviceCategoryId,
-              serviceSubtypeId: Number(editForm.serviceSubtypeId) || item.serviceSubtypeId,
-              category: category && subtype ? `${category.serviceName} / ${subtype.name}` : item.category,
-              detailedDescription: editForm.detailedDescription.trim(),
-              preferredContactMethod: editForm.preferredContactMethod,
-              preferredDeliveryDate: editForm.preferredDeliveryDate,
-              priorityLevel: editForm.priorityLevel,
-            }
-          : item,
-      ),
-    );
-    setEditingRequest(null);
+    if (
+      !editForm.serviceCategoryId ||
+      !editForm.serviceSubtypeId ||
+      !editForm.requestTitle.trim() ||
+      !editForm.detailedDescription.trim() ||
+      !editForm.preferredDeliveryDate
+    ) {
+      setError('Please fill all required fields before saving changes.');
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsSavingEdit(true);
+      const response = await api.put<{
+        success: boolean;
+        data: {
+          id: number;
+          requestTitle: string;
+          detailedDescription: string;
+          preferredContactMethod: string;
+          preferredDeliveryDate: string;
+          priorityLevel: string;
+          status: string;
+          createdAt: string;
+          serviceCategory: { id: number; categoryName: string };
+          serviceSubtype: { id: number; name: string };
+          benefittingMember?: { companyName: string } | null;
+        };
+      }>(`/service-requests/mine/${editingRequest.id}`, {
+        requestTitle: editForm.requestTitle.trim(),
+        serviceCategoryId: Number(editForm.serviceCategoryId),
+        serviceSubtypeId: Number(editForm.serviceSubtypeId),
+        detailedDescription: editForm.detailedDescription.trim(),
+        preferredContactMethod: editForm.preferredContactMethod,
+        preferredDeliveryDate: new Date(editForm.preferredDeliveryDate).toISOString(),
+        priorityLevel: editForm.priorityLevel,
+      });
+
+      const updated = response.data.data;
+      setRequests((prev) =>
+        prev.map((item) =>
+          item.id === String(updated.id)
+            ? {
+                ...item,
+                title: updated.requestTitle,
+                category: `${updated.serviceCategory.categoryName} / ${updated.serviceSubtype.name}`,
+                status: mapApiStatus(updated.status),
+                assignedOfficer: updated.benefittingMember?.companyName ?? 'Pending Assignment',
+                serviceCategoryId: updated.serviceCategory.id,
+                serviceSubtypeId: updated.serviceSubtype.id,
+                detailedDescription: updated.detailedDescription,
+                preferredContactMethod: updated.preferredContactMethod,
+                preferredDeliveryDate: toDateInput(updated.preferredDeliveryDate),
+                priorityLevel: updated.priorityLevel,
+              }
+            : item,
+        ),
+      );
+      setEditingRequest(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update request.');
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
-  const deleteRequest = (id: string) => {
-    setRequests((prev) => prev.filter((item) => item.id !== id));
-    if (selectedRequest?.id === id) setSelectedRequest(null);
-    if (editingRequest?.id === id) setEditingRequest(null);
+  const deleteRequest = async (id: string) => {
+    try {
+      setError(null);
+      await api.delete(`/service-requests/mine/${id}`);
+      setRequests((prev) => prev.filter((item) => item.id !== id));
+      if (selectedRequest?.id === id) setSelectedRequest(null);
+      if (editingRequest?.id === id) setEditingRequest(null);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete request.');
+    }
   };
 
   return (
@@ -605,7 +661,7 @@ export const RequestsPage: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteRequest(req.id)}
+                        onClick={() => void deleteRequest(req.id)}
                         className="rounded-md p-1 text-red-500 hover:bg-red-50"
                         title="Delete request"
                       >
@@ -649,7 +705,7 @@ export const RequestsPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => deleteRequest(req.id)}
+                      onClick={() => void deleteRequest(req.id)}
                       className="p-1.5 rounded-md hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
                       title="Delete request"
                     >
@@ -809,10 +865,11 @@ export const RequestsPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={saveEditRequest}
-                className="rounded-sm bg-[#EF9F27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d98e1e]"
+                onClick={() => void saveEditRequest()}
+                disabled={isSavingEdit}
+                className="rounded-sm bg-[#EF9F27] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d98e1e] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Save Changes
+                {isSavingEdit ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
@@ -824,4 +881,18 @@ export const RequestsPage: React.FC = () => {
 
 function mineOrEmpty<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
+}
+
+function mapApiStatus(status: string): RequestStatus {
+  const normalized = status.trim().toUpperCase();
+  if (normalized === 'DELIVERED' || normalized === 'COMPLETED') return 'completed';
+  if (normalized === 'CLOSED') return 'closed';
+  if (normalized === 'REQUESTED' || normalized === 'PENDING') return 'pending';
+  return 'in_progress';
+}
+
+function toDateInput(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
 }

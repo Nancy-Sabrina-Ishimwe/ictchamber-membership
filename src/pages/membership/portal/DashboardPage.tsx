@@ -87,7 +87,7 @@ const QuickAction: React.FC<{
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
-  const { member, setShowNewRequestModal } = usePortalStore();
+  const { setShowNewRequestModal } = usePortalStore();
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [activityTypeFilter, setActivityTypeFilter] = useState<'all' | 'request' | 'payment' | 'benefit' | 'document'>('all');
   const [periodDays, setPeriodDays] = useState(30);
@@ -102,6 +102,12 @@ export const DashboardPage: React.FC = () => {
     activeSubscriptions: 0,
     averageDeliveryDays: 0,
   });
+  const [subscriptions, setSubscriptions] = useState<Array<{
+    id: number;
+    startDate: string;
+    endDate: string;
+    active: boolean;
+  }>>([]);
   const [recentActivity, setRecentActivity] = useState<Array<{
     id: string;
     title: string;
@@ -128,6 +134,14 @@ export const DashboardPage: React.FC = () => {
                 activeSubscriptions: number;
                 averageDeliveryDays: number;
               };
+              membership: {
+                subscriptions: Array<{
+                  id: number;
+                  startDate: string;
+                  endDate: string;
+                  active: boolean;
+                }>;
+              };
             };
           }>('/analytics/member/dashboard'),
           api.get<{
@@ -142,6 +156,7 @@ export const DashboardPage: React.FC = () => {
         ]);
 
         setDashboardSummary(dashboardResponse.data.data.summary);
+        setSubscriptions(dashboardResponse.data.data.membership?.subscriptions ?? []);
         setRecentActivity(
           (activityResponse.data.data ?? []).map((item, index) => ({
             id: `${item.type}-${index}`,
@@ -188,17 +203,32 @@ export const DashboardPage: React.FC = () => {
   }, [activityTypeFilter, cutoffDate, recentActivity, selectedDate]);
 
   const openCount = useMemo(
-    () => filteredActivity.filter((item) => item.status === 'pending' || item.status === 'in_progress').length,
-    [filteredActivity],
+    () => dashboardSummary.pendingMyRequests,
+    [dashboardSummary.pendingMyRequests],
   );
   const completedCount = useMemo(
-    () => filteredActivity.filter((item) => item.status === 'completed' || item.status === 'closed').length,
-    [filteredActivity],
+    () => dashboardSummary.deliveredToMe,
+    [dashboardSummary.deliveredToMe],
   );
-  const membershipExpiryDays = useMemo(
-    () => (dashboardSummary.activeSubscriptions > 0 ? member.daysToExpiry : 0),
-    [dashboardSummary.activeSubscriptions, member.daysToExpiry],
-  );
+  const membershipExpiryDays = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const activeSubscription = subscriptions
+      .filter((subscription) => subscription.active)
+      .sort(
+        (a, b) =>
+          new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+      )[0];
+
+    if (!activeSubscription) return 0;
+
+    const endDate = new Date(activeSubscription.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    const diffMs = endDate.getTime() - now.getTime();
+
+    return diffMs > 0 ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : 0;
+  }, [subscriptions]);
 
   return (
     <PortalLayout title="Dashboard">

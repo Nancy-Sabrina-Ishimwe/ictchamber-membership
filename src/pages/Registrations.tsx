@@ -1,5 +1,6 @@
 import { Download, Search, Filter, ChevronDown, MapPin } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../lib/api";
 
 type RegistrationItem = {
   id: string;
@@ -10,36 +11,70 @@ type RegistrationItem = {
   cluster: string;
 };
 
-const registrations: RegistrationItem[] = [
-  {
-    id: "1",
-    appCode: "APP-2023-0891",
-    companyName: "TechNova Solutions Rwanda",
-    location: "Kigali Heights",
-    submittedOn: "Oct 24, 2023",
-    cluster: "Software Development",
-  },
-  {
-    id: "2",
-    appCode: "APP-2023-0892",
-    companyName: "Kigali Hardware Hub",
-    location: "Avenue de la Paix",
-    submittedOn: "Oct 23, 2023",
-    cluster: "Hardware & Infrastructure",
-  },
-  {
-    id: "3",
-    appCode: "APP-2023-0893",
-    companyName: "AgriTech Innovations",
-    location: "Innovation Village",
-    submittedOn: "Oct 21, 2023",
-    cluster: "IoT & Emerging Tech",
-  },
-];
+type MemberApiItem = {
+  id: number;
+  companyName: string;
+  active: boolean;
+  cluster?: { clusterName: string } | null;
+  address?: string | null;
+  selectedTier?: { tierName: string } | null;
+  subscriptions?: Array<{ startDate: string }>;
+};
+
+type MembersApiResponse = {
+  success: boolean;
+  count: number;
+  data: MemberApiItem[];
+};
+
+function formatDate(raw?: string) {
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function mapRegistration(item: MemberApiItem): RegistrationItem {
+  return {
+    id: String(item.id),
+    appCode: `APP-${String(item.id).padStart(6, "0")}`,
+    companyName: item.companyName,
+    location: item.address ?? "-",
+    submittedOn: formatDate(item.subscriptions?.[0]?.startDate),
+    cluster: item.cluster?.clusterName ?? "-",
+  };
+}
 
 export default function Registrations() {
   const [search, setSearch] = useState("");
   const [openPreviewId, setOpenPreviewId] = useState<string | null>(null);
+  const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRegistrations = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await api.get<MembersApiResponse>("/members");
+        const mapped = (response.data.data ?? [])
+          .filter((member) => !member.active || !member.selectedTier)
+          .map(mapRegistration);
+        setRegistrations(mapped);
+      } catch (fetchError) {
+        setError(fetchError instanceof Error ? fetchError.message : "Failed to load registrations.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchRegistrations();
+  }, []);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -47,7 +82,7 @@ export default function Registrations() {
     return registrations.filter((item) =>
       [item.companyName, item.location, item.appCode, item.cluster].join(" ").toLowerCase().includes(query),
     );
-  }, [search]);
+  }, [search, registrations]);
 
   return (
     <div className="space-y-5">
@@ -66,6 +101,12 @@ export default function Registrations() {
           Export CSV
         </button>
       </div>
+
+      {error ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <div className="rounded-md border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -89,7 +130,11 @@ export default function Registrations() {
       </div>
 
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="rounded-md border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
+            Loading registrations...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-md border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
             No registrations found for this search.
           </div>
@@ -156,3 +201,4 @@ export default function Registrations() {
     </div>
   );
 }
+

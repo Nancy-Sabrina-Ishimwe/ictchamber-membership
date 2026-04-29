@@ -80,7 +80,9 @@ export default function MainLayout({ children }: Props) {
   );
 
   return (
-    <div className={`flex h-screen ${location.pathname === ROUTES.ADMIN ? 'bg-[#F5F7FA]' : 'bg-white'}`}>
+    <div
+      className={`flex h-screen ${location.pathname.startsWith('/admin') ? 'bg-[#F5F7FA]' : 'bg-white'}`}
+    >
 
       {/* Desktop sidebar */}
       <aside className={`hidden lg:flex h-screen ${sidebarWidthClass} flex-shrink-0 flex-col bg-black text-white`}>

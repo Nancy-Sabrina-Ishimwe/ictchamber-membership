@@ -13,6 +13,8 @@ type PartnerApiItem = {
   programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
   fromYear: number;
   toYear: number;
+  fromDate?: string | null;
+  toDate?: string | null;
   createdAt: string;
 };
 
@@ -65,6 +67,8 @@ export default function Partners() {
     email: string;
     partnershipProgram: string;
     programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
+    fromDate: string;
+    toDate: string;
     fromYear: number;
     toYear: number;
   }) => {
@@ -136,7 +140,7 @@ export default function Partners() {
       <section className="bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900">Recently Added Partners</h3>
-          <button className="text-sm text-gray-500 hover:underline">
+          <button onClick={() => navigate('/admin/partners/directory')} className="text-sm text-gray-500 hover:underline">
             View All
           </button>
         </div>

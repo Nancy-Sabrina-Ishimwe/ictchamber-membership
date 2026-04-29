@@ -8,6 +8,7 @@ import {
   AreaChart, Area, Legend,
 } from "recharts";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 type DashboardSummary = {
   totalMembers: number;
@@ -85,14 +86,6 @@ type ActivityItem = {
   status: ActivityStatus;
 };
 
-const activities: ActivityItem[] = [
-  { id: "101", company: "TechVision Rwanda",      initials: "TV", color: "#1a1a2e", action: "Membership Renewed", date: "Today, 10:23 AM",     status: "Success" },
-  { id: "102", company: "Kigali Cloud Solutions",  initials: "KC", color: "#e91e63", action: "New Registration",   date: "Today, 09:15 AM",     status: "Pending" },
-  { id: "103", company: "Rwanda AgriTech",         initials: "RA", color: "#4caf50", action: "Payment Failed",     date: "Yesterday, 14:45 PM", status: "Failed"  },
-  { id: "104", company: "FinServe Africa",         initials: "FA", color: "#2196f3", action: "Profile Updated",    date: "Yesterday, 11:30 AM", status: "Info"    },
-  { id: "105", company: "EduConnect Ltd",          initials: "EC", color: "#9e9e9e", action: "Membership Expired", date: "Oct 24, 2023",        status: "Warning" },
-];
-
 type RecentActivityResponse = {
   success: boolean;
   count: number;
@@ -106,11 +99,15 @@ type RecentActivityResponse = {
 };
 
 const activityStatusByType: Record<string, ActivityStatus> = {
+  SERVICE_REQUEST_SUBMITTED: "Pending",
+  SERVICE_REQUEST_DELIVERED: "Success",
   MEMBERSHIP_SUBSCRIPTION_UPDATED: "Success",
   PARTNER_PROGRAM_UPDATED: "Info",
 };
 
 const activityColorByType: Record<string, string> = {
+  SERVICE_REQUEST_SUBMITTED: "#f59e0b",
+  SERVICE_REQUEST_DELIVERED: "#22c55e",
   MEMBERSHIP_SUBSCRIPTION_UPDATED: "#1a1a2e",
   PARTNER_PROGRAM_UPDATED: "#2196f3",
 };
@@ -283,11 +280,12 @@ function MemberTooltip({
 
 // ─── Dashboard Page ──────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary>(emptySummary);
   const [requestTrend, setRequestTrend] = useState<RequestsByMonth[]>([]);
   const [partnerTrend, setPartnerTrend] = useState<RequestsByMonth[]>([]);
   const [averageDeliveryDays, setAverageDeliveryDays] = useState(0);
-  const [recentActivities, setRecentActivities] = useState<ActivityItem[]>(activities);
+  const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -315,7 +313,7 @@ export default function Dashboard() {
         setPartnerTrend(partnersRes.data.data.partnersLastSixMonths ?? []);
         setAverageDeliveryDays(serviceRequestsRes.data.data.averageDeliveryDays ?? 0);
         const mappedActivities: ActivityItem[] = (recentActivityRes.data.data ?? []).map((item, index) => ({
-          id: `${item.date}-${index}`,
+          id: String(item.metadata?.requestId ?? item.metadata?.partnerId ?? item.metadata?.subscriptionId ?? `${item.date}-${index}`),
           company: item.title,
           initials: getInitials(item.title),
           color: activityColorByType[item.type] ?? "#6b7280",
@@ -324,14 +322,14 @@ export default function Dashboard() {
           rawDate: item.date,
           status: activityStatusByType[item.type] ?? "Info",
         }));
-        setRecentActivities(mappedActivities.length > 0 ? mappedActivities : activities);
+        setRecentActivities(mappedActivities);
       } catch (error) {
         const message =
           error instanceof Error
             ? error.message
             : "Failed to load analytics data.";
         setAnalyticsError(message);
-        setRecentActivities(activities);
+        setRecentActivities([]);
       } finally {
         setIsLoadingAnalytics(false);
       }
@@ -452,7 +450,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Hello, Admin 👋</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Hello, {user?.name ?? "Admin"} 👋</h2>
           <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
             Here is what's happening with the Membership today.
           </p>

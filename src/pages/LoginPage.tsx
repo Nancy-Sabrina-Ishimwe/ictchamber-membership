@@ -2,19 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Eye, EyeOff, Mail, Lock,
-  ArrowRight, CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { APP_LOGO_SRC, ROUTES } from '../constants/app';
 
 const NAVBAR_LOGO_CLASS = 'h-10 w-10 rounded-sm object-contain';
-
-const FEATURES = [
-  { label: 'Membership Management',  desc: 'Manage member profiles, tiers, and renewals in one place.' },
-  { label: 'Payment & Billing',      desc: 'Track invoices, receipts, and payment history seamlessly.' },
-  { label: 'Services & Events',      desc: 'Deliver services and organise events for your members.' },
-  { label: 'Reports & Analytics',    desc: 'Get insights on member activity, revenue, and engagement.' },
-];
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -85,45 +78,17 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <img src={APP_LOGO_SRC} alt="ICT Chamber" className={NAVBAR_LOGO_CLASS} />
-            <div>
-              <p className="text-white text-sm font-bold leading-tight">Rwanda ICT Chamber</p>
-              <p className="text-[#EF9F27] text-xs font-semibold leading-tight tracking-wide">
-                Membership Portal
-              </p>
-            </div>
-          </div>
-
-          {/* Hero text */}
-          <div className="mt-8 xl:mt-10">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#EF9F27]">
-              Welcome back
-            </p>
-            <h1 className="text-2xl font-black leading-snug text-white xl:text-3xl">
-              Powering Rwanda's
-              <br />
-              <span className="text-[#EF9F27]">Digital Economy</span>
-            </h1>
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-gray-400 xl:text-sm">
-              The Rwanda ICT Chamber Membership Management System — connecting, empowering, and accelerating the ICT ecosystem.
-            </p>
-          </div>
+          <img src={APP_LOGO_SRC} alt="ICT Chamber" className={NAVBAR_LOGO_CLASS} />
         </div>
 
-        {/* Feature list */}
-        <div className="relative z-10 mt-6 min-h-0 flex-1 space-y-2.5 overflow-hidden xl:space-y-3">
-          {FEATURES.map((f) => (
-            <div key={f.label} className="flex items-start gap-2.5">
-              <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#EF9F27]/15 xl:h-6 xl:w-6">
-                <CheckCircle2 size={13} className="text-[#EF9F27]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-white xl:text-xs">{f.label}</p>
-                <p className="text-[10px] leading-snug text-gray-500 xl:text-[11px] xl:leading-relaxed">{f.desc}</p>
-              </div>
-            </div>
-          ))}
+        {/* Centered brand text */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-3xl font-black leading-tight text-white">Rwanda ICT Chamber</p>
+            <p className="mt-1 text-xl font-bold leading-tight tracking-wide text-[#EF9F27]">
+              Membership Portal
+            </p>
+          </div>
         </div>
 
         {/* Bottom tagline */}

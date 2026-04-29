@@ -9,6 +9,8 @@ type Props = {
     email: string;
     partnershipProgram: string;
     programStatus: "ONGOING" | "INCOMING" | "COMPLETED";
+    fromDate: string;
+    toDate: string;
     fromYear: number;
     toYear: number;
   }) => Promise<void>;
@@ -16,9 +18,22 @@ type Props = {
 };
 
 const mapStatusToApi = (value: string): "ONGOING" | "INCOMING" | "COMPLETED" | null => {
-  if (value === "Active") return "ONGOING";
-  if (value === "Pending") return "INCOMING";
-  if (value === "Closed") return "COMPLETED";
+  if (value === "Ongoing" || value === "Active") return "ONGOING";
+  if (value === "Incoming" || value === "Pending") return "INCOMING";
+  if (value === "Completed" || value === "Closed") return "COMPLETED";
+  return null;
+};
+
+const validateTimeframe = (
+  programStatus: "ONGOING" | "INCOMING" | "COMPLETED",
+  fromYear: number,
+  toYear: number,
+): string | null => {
+  if (fromYear > toYear) return "From date cannot be later than To date.";
+  const currentYear = new Date().getFullYear();
+  if (programStatus === "COMPLETED" && (fromYear === currentYear || toYear === currentYear)) {
+    return `For COMPLETED status, current year (${currentYear}) is not allowed in timeframe.`;
+  }
   return null;
 };
 
@@ -51,6 +66,11 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
         setError("Please complete all required fields with valid From/To dates.");
         return;
       }
+      const timeframeError = validateTimeframe(programStatus, fromYear, toYear);
+      if (timeframeError) {
+        setError(timeframeError);
+        return;
+      }
 
       await onSave({
         partnerName: form.name,
@@ -58,6 +78,8 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
         email: form.email,
         partnershipProgram: form.program,
         programStatus,
+        fromDate: form.fromDate,
+        toDate: form.toDate,
         fromYear,
         toYear,
       });
@@ -124,11 +146,11 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
           {/* Section */}
           <h3 className="font-semibold mt-2">Program & Engagement</h3>
 
-          <Select
-            label="Partnership Program"
+          <Input
+            label="Partnership Program *"
             value={form.program}
             onChange={(v) => handleChange("program", v)}
-            options={["Program A", "Program B"]}
+            placeholder="e.g. Cloud Skills Program"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -136,7 +158,7 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
               label="Program Status *"
               value={form.status}
               onChange={(v) => handleChange("status", v)}
-              options={["Active", "Pending", "Closed"]}
+              options={["Ongoing", "Incoming", "Completed"]}
             />
             <div className="grid grid-cols-2 gap-2">
               <Input
@@ -152,11 +174,6 @@ export default function PartnerModal({ onClose, onSave, isSaving = false }: Prop
                 onChange={(v) => handleChange("toDate", v)}
               />
             </div>
-          </div>
-
-          {/* Note */}
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded text-sm text-gray-600">
-            ⚠️ This partner entry automatically syncs with analytics dashboards.
           </div>
         </div>
 

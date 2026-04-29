@@ -12,15 +12,52 @@ import {
 import type { Renewal } from "../types/renewal";
 import { getRenewals } from "../services/renewalService";
 
+type ReminderTrigger = {
+  id: string;
+  label: string;
+  sub: string;
+  enabled: boolean;
+};
+
 export default function Renewals() {
   const [data, setData] = useState<Renewal[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [triggers, setTriggers] = useState<ReminderTrigger[]>([
+    { id: "three-months", label: "3 Months Before Expiry", sub: "Email Only", enabled: true },
+    { id: "two-months", label: "2 Months Before Expiry", sub: "Email + SMS", enabled: true },
+    { id: "one-month", label: "1 Month Before Expiry", sub: "Email + SMS (Urgent)", enabled: true },
+    { id: "on-expiry", label: "On Expiry Day", sub: "Email + SMS", enabled: true },
+  ]);
+  const pageSize = 5;
 
   useEffect(() => {
     getRenewals().then(setData);
   }, []);
 
   const expiringSoon = data.filter((r) => r.daysLeft <= 30).length;
-  const projectedRevenueM = 1.4;
+
+  const filteredData = data.filter((item) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+    const searchable = `${item.companyName} ${item.tier} ${item.category}`.toLowerCase();
+    return searchable.includes(query);
+  });
+
+  const projectedRevenue = filteredData.length * 700000;
+  const activeTriggerCount = triggers.filter((item) => item.enabled).length;
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedData = filteredData.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -36,7 +73,7 @@ export default function Renewals() {
 
         <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 sm:gap-3 w-full lg:w-auto">
           <TopStat label="EXPIRING < 30 DAYS" value={expiringSoon.toString()} red />
-          <TopStat label="PROJECTED REVENUE" value={`${projectedRevenueM}M`} suffix="RWF" />
+          <TopStat label="PROJECTED REVENUE" value={formatCompactMoney(projectedRevenue)} suffix="RWF" />
         </div>
       </div>
 
@@ -63,6 +100,8 @@ export default function Renewals() {
                 <Search size={13} className="text-gray-400" />
                 <input
                   placeholder="Search members..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
                   className="ml-2 text-xs sm:text-sm outline-none w-full bg-transparent"
                 />
               </div>
@@ -81,7 +120,7 @@ export default function Renewals() {
 
           {/* MOBILE CARDS */}
           <div className="md:hidden divide-y divide-gray-100">
-            {data.map((item) => (
+            {paginatedData.map((item) => (
               <div key={item.id} className="p-3 space-y-2.5 hover:bg-gray-50/60 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -116,7 +155,7 @@ export default function Renewals() {
 
           {/* DESKTOP ROWS */}
           <div className="hidden md:block">
-            {data.map((item) => (
+            {paginatedData.map((item) => (
               <div
                 key={item.id}
                 className="grid grid-cols-3 items-start lg:items-center gap-2.5 px-3 sm:px-4 py-3 border-b border-gray-100 hover:bg-gray-50/60 transition-colors"
@@ -153,10 +192,27 @@ export default function Renewals() {
 
           {/* FOOTER */}
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center p-3 sm:p-4 text-xs text-gray-500">
-            <p>Showing {data.length} expiring members</p>
+            <p>
+              Showing {filteredData.length === 0 ? 0 : startIndex + 1} to{" "}
+              {Math.min(startIndex + paginatedData.length, filteredData.length)} of {filteredData.length} expiring members
+            </p>
             <div className="flex gap-2">
-              <button className="border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50 transition-colors">Prev</button>
-              <button className="border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50 transition-colors">Next</button>
+              <button
+                type="button"
+                disabled={safePage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                className="border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                className="border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
@@ -172,7 +228,7 @@ export default function Renewals() {
                 Automated Triggers
               </h3>
               <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
-                Active
+                {activeTriggerCount}/{triggers.length} Active
               </span>
             </div>
 
@@ -180,14 +236,21 @@ export default function Renewals() {
               System will automatically dispatch the template below based on these active rules.
             </p>
 
-            <Trigger label="3 Months Before Expiry" sub="Email Only" />
-            <Trigger label="2 Months Before Expiry" sub="Email + SMS" />
-            <Trigger label="1 Month Before Expiry" sub="Email + SMS (Urgent)" />
-            <Trigger label="On Expiry Day" sub="Email + SMS" />
-
-            <button className="text-xs sm:text-sm mt-2.5 text-gray-700 hover:text-gray-900 transition-colors">
-              + Add Custom Rule
-            </button>
+            {triggers.map((trigger) => (
+              <Trigger
+                key={trigger.id}
+                label={trigger.label}
+                sub={trigger.sub}
+                enabled={trigger.enabled}
+                onToggle={() =>
+                  setTriggers((prev) =>
+                    prev.map((item) =>
+                      item.id === trigger.id ? { ...item, enabled: !item.enabled } : item,
+                    ),
+                  )
+                }
+              />
+            ))}
           </div>
 
           {/* TEMPLATE */}
@@ -266,16 +329,38 @@ function ExpiryBadge({ days }: { days: number }) {
   );
 }
 
-function Trigger({ label, sub }: { label: string; sub: string }) {
+function Trigger({
+  label,
+  sub,
+  enabled,
+  onToggle,
+}: {
+  label: string;
+  sub: string;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="flex justify-between items-center border border-gray-100 p-2.5 rounded-md mb-2">
       <div>
         <p className="text-xs sm:text-sm font-medium text-gray-800">{label}</p>
         <p className="text-xs text-gray-500">{sub}</p>
       </div>
-      <div className="w-9 h-5 rounded-full bg-slate-800 relative">
-        <span className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={onToggle}
+        className={`relative h-5 w-9 rounded-full transition-colors ${
+          enabled ? "bg-slate-800" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+            enabled ? "right-0.5" : "left-0.5"
+          }`}
+        />
+      </button>
     </div>
   );
 }
@@ -319,4 +404,10 @@ function formatDate(date: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatCompactMoney(amount: number) {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}K`;
+  return amount.toString();
 }

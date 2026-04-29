@@ -129,6 +129,35 @@ export default function Payments() {
     });
   }, [payments, searchQuery, statusFilter, fromDate, toDate]);
 
+  const handleExportPayments = () => {
+    const rows = filteredPayments.map((payment) => [
+      payment.companyName,
+      payment.tier,
+      payment.period,
+      payment.amount,
+      payment.datePaid,
+      payment.method,
+      payment.reference,
+      payment.status,
+    ]);
+    const csv = [
+      ["Company", "Tier", "Period", "Amount", "Date Paid", "Method", "Reference", "Status"].join(","),
+      ...rows.map((row) =>
+        row
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `membership-payments-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const totalFiltered = filteredPayments.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -244,7 +273,11 @@ export default function Payments() {
               <option value="Failed">Failed</option>
             </select>
 
-            <button className="w-full xl:w-auto flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors whitespace-nowrap min-w-[110px]">
+            <button
+              type="button"
+              onClick={handleExportPayments}
+              className="w-full xl:w-auto flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded text-sm hover:bg-gray-50 transition-colors whitespace-nowrap min-w-[110px]"
+            >
               <Download size={16} />
               Export
             </button>
