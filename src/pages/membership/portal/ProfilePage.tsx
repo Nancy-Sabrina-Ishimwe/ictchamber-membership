@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
 import { PortalInput, PortalTextarea } from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
@@ -64,6 +65,14 @@ export const ProfilePage: React.FC = () => {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactPerson | null>(null);
+  const [contactForm, setContactForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    role: '',
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -175,6 +184,64 @@ export const ProfilePage: React.FC = () => {
     updateContacts(contacts.filter((c) => c.id !== id));
   };
 
+  const openAddContactModal = () => {
+    setContactForm({ fullName: '', email: '', phone: '', role: '' });
+    setShowAddContactModal(true);
+  };
+
+  const openEditContactModal = (contact: ContactPerson) => {
+    setEditingContact(contact);
+    setContactForm({
+      fullName: contact.fullName,
+      email: contact.email,
+      phone: contact.phone,
+      role: contact.role,
+    });
+  };
+
+  const closeContactModal = () => {
+    setShowAddContactModal(false);
+    setEditingContact(null);
+  };
+
+  const saveContact = () => {
+    const fullName = contactForm.fullName.trim();
+    const email = contactForm.email.trim();
+    const phone = contactForm.phone.trim();
+    const role = contactForm.role.trim() || 'Contact Person';
+    if (!fullName || !email || !phone) return;
+
+    const avatarInitials =
+      fullName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0] ?? '')
+        .join('')
+        .toUpperCase() || 'NA';
+
+    if (editingContact) {
+      updateContacts(
+        contacts.map((contact) =>
+          contact.id === editingContact.id
+            ? { ...contact, fullName, email, phone, role, avatarInitials }
+            : contact,
+        ),
+      );
+    } else {
+      const newContact: ContactPerson = {
+        id: `${Date.now()}`,
+        fullName,
+        email,
+        phone,
+        role,
+        avatarInitials,
+      };
+      updateContacts([...contacts, newContact]);
+    }
+
+    closeContactModal();
+  };
+
   return (
     <PortalLayout title="Profile">
       <div className="mx-auto max-w-[900px]">
@@ -265,7 +332,10 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-xs text-gray-400">Manage founders, CEOs, and designated representatives.</p>
               </div>
             </div>
-            <button className="flex items-center gap-2 rounded-sm border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-900 transition-colors hover:border-gray-300">
+            <button
+              onClick={openAddContactModal}
+              className="flex items-center gap-2 rounded-sm border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-900 transition-colors hover:border-gray-300"
+            >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
               </svg>
@@ -278,7 +348,7 @@ export const ProfilePage: React.FC = () => {
               <ContactRow
                 key={contact.id}
                 contact={contact}
-                onEdit={() => {}}
+                onEdit={() => openEditContactModal(contact)}
                 onDelete={() => handleDeleteContact(contact.id)}
               />
             ))}
@@ -394,6 +464,94 @@ export const ProfilePage: React.FC = () => {
           </button>
         </div>
       </div>
+      {(showAddContactModal || editingContact) ? (
+        <ContactModal
+          title={editingContact ? 'Edit Contact' : 'Add Contact'}
+          form={contactForm}
+          onChange={(field, value) => setContactForm((prev) => ({ ...prev, [field]: value }))}
+          onClose={closeContactModal}
+          onSave={saveContact}
+          saveLabel={editingContact ? 'Save Changes' : 'Add Contact'}
+        />
+      ) : null}
     </PortalLayout>
+  );
+};
+
+const ContactModal: React.FC<{
+  title: string;
+  form: {
+    fullName: string;
+    email: string;
+    phone: string;
+    role: string;
+  };
+  onChange: (field: 'fullName' | 'email' | 'phone' | 'role', value: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+  saveLabel: string;
+}> = ({ title, form, onChange, onClose, onSave, saveLabel }) => {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  const isInvalid = !form.fullName.trim() || !form.email.trim() || !form.phone.trim();
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-sm border border-gray-200 bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <button type="button" className="text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
+        </div>
+        <div className="space-y-3 p-4">
+          <PortalInput
+            label="Full Name"
+            required
+            value={form.fullName}
+            onChange={(event) => onChange('fullName', event.target.value)}
+          />
+          <PortalInput
+            label="Email"
+            required
+            value={form.email}
+            onChange={(event) => onChange('email', event.target.value)}
+          />
+          <PortalInput
+            label="Phone"
+            required
+            value={form.phone}
+            onChange={(event) => onChange('phone', event.target.value)}
+          />
+          <PortalInput
+            label="Role / Title"
+            value={form.role}
+            onChange={(event) => onChange('role', event.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-sm border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isInvalid}
+            className="rounded-sm bg-[#E5AB00] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d49e00] disabled:opacity-60"
+          >
+            {saveLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 };

@@ -88,7 +88,10 @@ const QuickAction: React.FC<{
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
   const { member, setShowNewRequestModal } = usePortalStore();
-  const [dateFilter] = useState('YTD (Jan - Jul)');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [activityTypeFilter, setActivityTypeFilter] = useState<'all' | 'request' | 'payment' | 'benefit' | 'document'>('all');
+  const [periodDays, setPeriodDays] = useState(30);
+  const [selectedDate, setSelectedDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardSummary, setDashboardSummary] = useState({
@@ -103,6 +106,7 @@ export const DashboardPage: React.FC = () => {
     id: string;
     title: string;
     date: string;
+    occurredAt: string;
     status: RequestStatus;
     type: string;
   }>>([]);
@@ -143,6 +147,7 @@ export const DashboardPage: React.FC = () => {
             id: `${item.type}-${index}`,
             title: item.title,
             date: formatDate(item.date),
+            occurredAt: item.date,
             status: mapStatus(item.status),
             type: mapActivityType(item.type),
           })),
@@ -157,8 +162,39 @@ export const DashboardPage: React.FC = () => {
     void fetchDashboard();
   }, []);
 
-  const openCount = dashboardSummary.pendingMyRequests;
-  const completedCount = dashboardSummary.deliveredToMe;
+  const cutoffDate = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - periodDays);
+    return cutoff;
+  }, [periodDays]);
+
+  const filteredActivity = useMemo(() => {
+    const selected = selectedDate ? new Date(`${selectedDate}T00:00:00`) : null;
+    return recentActivity.filter((item) => {
+      const activityDate = new Date(item.occurredAt);
+      if (Number.isNaN(activityDate.getTime())) return false;
+      if (activityDate < cutoffDate) return false;
+      if (selected) {
+        const sameDay =
+          activityDate.getFullYear() === selected.getFullYear() &&
+          activityDate.getMonth() === selected.getMonth() &&
+          activityDate.getDate() === selected.getDate();
+        if (!sameDay) return false;
+      }
+      if (activityTypeFilter !== 'all' && item.type !== activityTypeFilter) return false;
+      return true;
+    });
+  }, [activityTypeFilter, cutoffDate, recentActivity, selectedDate]);
+
+  const openCount = useMemo(
+    () => filteredActivity.filter((item) => item.status === 'pending' || item.status === 'in_progress').length,
+    [filteredActivity],
+  );
+  const completedCount = useMemo(
+    () => filteredActivity.filter((item) => item.status === 'completed' || item.status === 'closed').length,
+    [filteredActivity],
+  );
   const membershipExpiryDays = useMemo(
     () => (dashboardSummary.activeSubscriptions > 0 ? member.daysToExpiry : 0),
     [dashboardSummary.activeSubscriptions, member.daysToExpiry],
@@ -179,25 +215,71 @@ export const DashboardPage: React.FC = () => {
 
       {/* Filter bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 bg-white border border-gray-100 rounded-sm px-3.5 py-2">
-        <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-          </svg>
-          Filter
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFilterMenu((prev) => !prev)}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            Filter
+          </button>
+          {showFilterMenu ? (
+            <div className="absolute left-0 top-full z-20 mt-2 w-44 rounded-sm border border-gray-200 bg-white p-2 shadow-lg">
+              {[
+                { value: 'all', label: 'All activity' },
+                { value: 'request', label: 'Requests' },
+                { value: 'payment', label: 'Payments' },
+                { value: 'benefit', label: 'Benefits' },
+                { value: 'document', label: 'Documents' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setActivityTypeFilter(option.value as 'all' | 'request' | 'payment' | 'benefit' | 'document');
+                    setShowFilterMenu(false);
+                  }}
+                  className={`block w-full rounded-sm px-2 py-1.5 text-left text-xs ${
+                    activityTypeFilter === option.value ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <button className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-600 border border-gray-200 rounded-sm px-2.5 py-1.5 hover:border-gray-300 transition-colors">
+          <label className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-600 border border-gray-200 rounded-sm px-2.5 py-1.5 hover:border-gray-300 transition-colors">
             <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            {dateFilter}
-          </button>
-          <button className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-600 border border-gray-200 rounded-sm px-2.5 py-1.5 hover:border-gray-300 transition-colors">
+            <select
+              value={periodDays}
+              onChange={(event) => setPeriodDays(Number(event.target.value))}
+              className="bg-transparent outline-none"
+            >
+              <option value={7}>Last 7 Days</option>
+              <option value={30}>Last 30 Days</option>
+              <option value={90}>Last 90 Days</option>
+              <option value={180}>Last 180 Days</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-600 border border-gray-200 rounded-sm px-2.5 py-1.5 hover:border-gray-300 transition-colors">
             <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            Select Date
-          </button>
+            <span className="text-xs text-gray-500">Select Date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => setSelectedDate(event.target.value)}
+              className="bg-transparent text-sm outline-none"
+            />
+          </label>
         </div>
       </div>
 
@@ -252,13 +334,13 @@ export const DashboardPage: React.FC = () => {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {isLoading && recentActivity.length === 0 ? (
+            {isLoading && filteredActivity.length === 0 ? (
               <div className="px-4 py-4 text-xs text-gray-500">Loading recent activity...</div>
             ) : null}
-            {!isLoading && recentActivity.length === 0 ? (
+            {!isLoading && filteredActivity.length === 0 ? (
               <div className="px-4 py-4 text-xs text-gray-500">No recent activity yet.</div>
             ) : null}
-            {recentActivity.map((item) => (
+            {filteredActivity.map((item) => (
               <div key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <ActivityIcon type={item.type} />
