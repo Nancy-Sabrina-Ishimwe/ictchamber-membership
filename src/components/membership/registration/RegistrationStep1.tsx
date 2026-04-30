@@ -12,7 +12,7 @@ import { ChevronDown, Search } from 'lucide-react';
 import { useRegistrationStore } from '../../../store/registrationStore';
 import { companyInfoSchema, keyContactsSchema } from '../../../lib/schemas';
 import { Input, Button, Card } from '../ui/ui';
-import { getClustersApi, registerApi, type ClusterItem, type SubclusterItem } from '../../../services/authService';
+import { getClustersApi, registerApi, type ClusterItem } from '../../../services/authService';
 
 type KeyContactsFormValues = z.infer<typeof keyContactsSchema>;
 
@@ -193,9 +193,6 @@ const ClusterDropdown: React.FC<{
                 >
                   <span className={['w-5 h-5 rounded-full border-2 flex-shrink-0', selected ? 'border-[#EF9F27] bg-[#EF9F27]/10' : 'border-gray-300'].join(' ')} />
                   <span className="text-sm font-semibold text-gray-700">{cluster.clusterName}</span>
-                  {cluster.subclusters.length > 0 && (
-                    <span className="ml-auto text-xs text-gray-400">{cluster.subclusters.length} sub</span>
-                  )}
                 </button>
               );
             })}
@@ -210,65 +207,6 @@ const ClusterDropdown: React.FC<{
   );
 };
 
-// ─── Subcluster Dropdown ──────────────────────────────────────────────────────
-const SubclusterDropdown: React.FC<{
-  subclusters: SubclusterItem[];
-  value?: number | null;
-  onChange: (subcluster: SubclusterItem) => void;
-  disabled?: boolean;
-}> = ({ subclusters, value, onChange, disabled }) => {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const selected = subclusters.find((s) => s.id === value);
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
-
-  if (subclusters.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-1.5" ref={containerRef}>
-      <label className="text-sm font-medium text-gray-700">Sub-cluster</label>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((prev) => !prev)}
-        className={[
-          'w-full px-3 py-2.5 rounded-sm border bg-white text-left transition-colors duration-150 flex items-center justify-between',
-          open ? 'border-[#EF9F27] ring-2 ring-[#EF9F27]/20' : 'border-gray-200 hover:border-gray-300',
-          !selected ? 'text-gray-400' : 'text-gray-900',
-          disabled ? 'opacity-50 cursor-not-allowed' : '',
-        ].join(' ')}
-      >
-        <span className="text-sm leading-none">{selected?.name ?? 'Select a sub-cluster'}</span>
-        <ChevronDown className={['w-4 h-4 text-gray-400 transition-transform', open ? 'rotate-180' : ''].join(' ')} />
-      </button>
-      {open && (
-        <div className="bg-white border border-gray-200 rounded-sm mt-1.5 shadow-sm overflow-hidden z-10 relative">
-          <div className="max-h-48 overflow-y-auto py-1">
-            {subclusters.map((sub) => (
-              <button
-                key={sub.id}
-                type="button"
-                onClick={() => { onChange(sub); setOpen(false); }}
-                className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-slate-50 transition-colors"
-              >
-                <span className={['w-5 h-5 rounded-full border-2 flex-shrink-0', sub.id === value ? 'border-[#EF9F27] bg-[#EF9F27]/10' : 'border-gray-300'].join(' ')} />
-                <span className="text-sm font-semibold text-gray-700">{sub.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // ─── Step 1 Page ─────────────────────────────────────────────────────────────
 export const RegistrationStep1: React.FC = () => {
   const { formData, updateCompanyInfo, updateKeyContacts, setShowTrustSealModal } =
@@ -277,11 +215,7 @@ export const RegistrationStep1: React.FC = () => {
   // Cluster state from API
   const [clusters, setClusters] = useState<ClusterItem[]>([]);
   const [selectedCluster, setSelectedCluster] = useState<ClusterItem | null>(null);
-  const [selectedSubclusterId, setSelectedSubclusterId] = useState<number | null>(
-    formData.companyInfo.subclusterId,
-  );
   const [clusterError, setClusterError] = useState('');
-  const [subclusterError, setSubclusterError] = useState('');
 
   // API submission state
   const [submitting, setSubmitting] = useState(false);
@@ -333,7 +267,6 @@ export const RegistrationStep1: React.FC = () => {
 
   const handleClusterChange = (cluster: ClusterItem) => {
     setSelectedCluster(cluster);
-    setSelectedSubclusterId(null);
     setClusterError('');
     companyForm.setValue('cluster', cluster.clusterName, {
       shouldValidate: true,
@@ -344,15 +277,10 @@ export const RegistrationStep1: React.FC = () => {
   const handleSubmit = async () => {
     setApiError('');
 
-    // Validate cluster + subcluster
+    // Validate cluster selection
     let valid = true;
     if (!selectedCluster) {
       setClusterError('Please select a cluster.');
-      valid = false;
-    }
-    const subclusters = selectedCluster?.subclusters ?? [];
-    if (subclusters.length > 0 && !selectedSubclusterId) {
-      setSubclusterError('Please select a sub-cluster.');
       valid = false;
     }
 
@@ -375,7 +303,6 @@ export const RegistrationStep1: React.FC = () => {
         companyName: companyValues.officialName,
         address: companyValues.address,
         clusterId: selectedCluster!.id,
-        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
         hasSeal: false, // set after TrustSeal modal in step 2
         founders: contactsValues.founders.map(({ fullName, email, phone }) => ({
           fullName,
@@ -396,7 +323,7 @@ export const RegistrationStep1: React.FC = () => {
         ...companyValues,
         logoFile,
         clusterId: selectedCluster!.id,
-        subclusterId: selectedSubclusterId ?? selectedCluster!.id,
+        subclusterId: null,
       });
       updateKeyContacts(contactsValues);
 
@@ -450,19 +377,6 @@ export const RegistrationStep1: React.FC = () => {
                   onChange={handleClusterChange}
                   error={clusterError || companyForm.formState.errors.cluster?.message}
                 />
-                {selectedCluster && selectedCluster.subclusters.length > 0 && (
-                  <SubclusterDropdown
-                    subclusters={selectedCluster.subclusters}
-                    value={selectedSubclusterId}
-                    onChange={(sub) => {
-                      setSelectedSubclusterId(sub.id);
-                      setSubclusterError('');
-                    }}
-                  />
-                )}
-                {subclusterError && (
-                  <p className="text-xs text-red-500">{subclusterError}</p>
-                )}
               </div>
               <Input
                 label="TIN Number"

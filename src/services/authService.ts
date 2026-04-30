@@ -87,7 +87,7 @@ export interface RegisterPayload {
   companyName: string;
   address: string;
   clusterId: number;
-  subclusterId: number;
+  subclusterId?: number | null;
   hasSeal: boolean;
   founders: Array<{ fullName: string; email: string; phone: string }>;
   alternateRepresentative: {
@@ -107,7 +107,9 @@ export async function registerApi(payload: RegisterPayload): Promise<RegisterRes
   form.append('companyName', payload.companyName);
   form.append('address', payload.address);
   form.append('clusterId', String(payload.clusterId));
-  form.append('subclusterId', String(payload.subclusterId));
+  if (payload.subclusterId != null) {
+    form.append('subclusterId', String(payload.subclusterId));
+  }
   form.append('hasSeal', String(payload.hasSeal));
   form.append('founders', JSON.stringify(payload.founders));
   form.append('alternateRepresentative', JSON.stringify(payload.alternateRepresentative));

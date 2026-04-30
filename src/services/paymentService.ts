@@ -20,6 +20,27 @@ export interface InitiatePaymentResponse {
   data?: Record<string, unknown>;
 }
 
+export interface CreateInlineInvoicePayload {
+  email: string;
+  membershipType: string;
+}
+
+export interface CreateInlineInvoiceResponse {
+  success: boolean;
+  message: string;
+  invoiceNumber?: string;
+  data?: {
+    data?: {
+      invoiceNumber?: string;
+    };
+  };
+}
+
+export interface ActivateInlinePaymentResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface PaymentCardsAnalytics {
   totalCollectedYtd: number;
   pendingAmount: number;
@@ -106,5 +127,29 @@ export async function initiatePaymentApi(
     '/irembopay/payments/mobile-money',
     payload,
   );
+  return data;
+}
+
+/**
+ * POST /api/irembopay/invoices
+ * Creates an IremboPay inline checkout invoice linked to a registered member and tier.
+ */
+export async function createInlinePaymentInvoice(
+  payload: CreateInlineInvoicePayload,
+): Promise<CreateInlineInvoiceResponse> {
+  const { data } = await api.post<CreateInlineInvoiceResponse>('/irembopay/invoices', payload);
+  return data;
+}
+
+/**
+ * POST /api/irembopay/invoices/activate
+ * Finalizes a successful inline checkout and sends the member credentials email.
+ */
+export async function activateInlinePayment(
+  invoiceNumber: string,
+): Promise<ActivateInlinePaymentResponse> {
+  const { data } = await api.post<ActivateInlinePaymentResponse>('/irembopay/invoices/activate', {
+    invoiceNumber,
+  });
   return data;
 }
