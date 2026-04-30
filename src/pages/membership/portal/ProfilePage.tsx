@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
-import { PortalInput, PortalTextarea } from '../../../components/membership/portal/PortalUI';
+import { PortalInput, 
+  // PortalTextarea 
+} from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
 import type { ContactPerson } from '../../../types/portal';
 import { api } from '../../../lib/api';
@@ -73,7 +75,7 @@ export const ProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [sendingVerification, setSendingVerification] = useState(false);
+  const [_sendingVerification, _setSendingVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -216,21 +218,21 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleSendVerificationLink = async () => {
-    try {
-      setSendingVerification(true);
-      setPasswordMessage(null);
-      // Keep this non-blocking for environments where backend endpoint is not yet wired.
-      await Promise.resolve();
-      setPasswordMessage(`Verification link sent to ${member.email}.`);
-    } catch (verificationError) {
-      setPasswordMessage(
-        verificationError instanceof Error ? verificationError.message : 'Failed to send verification link.',
-      );
-    } finally {
-      setSendingVerification(false);
-    }
-  };
+  // const handleSendVerificationLink = async () => {
+  //   try {
+  //     setSendingVerification(true);
+  //     setPasswordMessage(null);
+  //     // Keep this non-blocking for environments where backend endpoint is not yet wired.
+  //     await Promise.resolve();
+  //     setPasswordMessage(`Verification link sent to ${member.email}.`);
+  //   } catch (verificationError) {
+  //     setPasswordMessage(
+  //       verificationError instanceof Error ? verificationError.message : 'Failed to send verification link.',
+  //     );
+  //   } finally {
+  //     setSendingVerification(false);
+  //   }
+  // };
 
   const handleCancelProfileChanges = () => {
     setForm({
@@ -262,11 +264,11 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const openAddContactModal = () => {
-    setContactError(null);
-    setContactForm({ fullName: '', email: '', phone: '', role: '' });
-    setShowAddContactModal(true);
-  };
+  // const openAddContactModal = () => {
+  //   setContactError(null);
+  //   setContactForm({ fullName: '', email: '', phone: '', role: '' });
+  //   setShowAddContactModal(true);
+  // };
 
   const openEditContactModal = (contact: ContactPerson) => {
     setContactError(null);
