@@ -159,6 +159,7 @@ export const RegistrationStep2: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [tierError, setTierError] = useState('');
   const [apiError, setApiError] = useState('');
+  const [showBenefitsModal, setShowBenefitsModal] = useState(false);
 
   const { tier, period } = formData.tierPayment;
   const totalAmount = tier ? TIER_PRICES[tier] * period : 0;
@@ -265,6 +266,7 @@ export const RegistrationStep2: React.FC = () => {
       <div className="mb-4 flex justify-center">
         <button
           type="button"
+          onClick={() => setShowBenefitsModal(true)}
           className="rounded-sm bg-[#EAB308] px-8 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d49e00]"
         >
           View Benefits
@@ -372,6 +374,32 @@ export const RegistrationStep2: React.FC = () => {
           </Button>
         )}
       </div>
+
+      {showBenefitsModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 sm:p-6"
+          onClick={() => setShowBenefitsModal(false)}
+        >
+          <div
+            className="relative w-full max-w-5xl rounded-lg bg-white p-3 sm:p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowBenefitsModal(false)}
+              className="absolute right-3 top-3 rounded bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow hover:bg-gray-50"
+              aria-label="Close benefits image"
+            >
+              Close
+            </button>
+            <img
+              src="/benefits.png"
+              alt="Membership benefits by tier"
+              className="mx-auto h-auto max-h-[80vh] w-auto max-w-full rounded object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -26,6 +26,17 @@ type ActivityItem = {
   icon: "delivered" | "request" | "member" | "maintenance";
 };
 
+type RequestedServiceItem = {
+  id: number;
+  title: string;
+  company: string;
+  category: string;
+  subtype: string;
+  preferredDeliveryDate: string;
+  priority: string;
+  createdAt: string;
+};
+
 type ServicesAnalyticsResponse = {
   success: boolean;
   data: {
@@ -60,6 +71,7 @@ export default function DeliveredServices() {
   });
   const [trendData, setTrendData] = useState<TrendItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [requestedServices, setRequestedServices] = useState<RequestedServiceItem[]>([]);
   const [rangeDays, setRangeDays] = useState(30);
 
   useEffect(() => {
@@ -67,8 +79,22 @@ export default function DeliveredServices() {
       try {
         setError(null);
         setIsLoading(true);
-        const response = await api.get<ServicesAnalyticsResponse>("/analytics/services/superadmin");
-        const payload = response.data.data;
+        const [analyticsResponse, requestedResponse] = await Promise.all([
+          api.get<ServicesAnalyticsResponse>("/analytics/services/superadmin"),
+          api.get<{
+            data?: Array<{
+              id: number;
+              requestTitle: string;
+              priorityLevel: string;
+              preferredDeliveryDate: string;
+              createdAt: string;
+              requester?: { companyName?: string | null } | null;
+              serviceCategory?: { categoryName?: string | null } | null;
+              serviceSubtype?: { name?: string | null } | null;
+            }>;
+          }>("/service-requests/requested"),
+        ]);
+        const payload = analyticsResponse.data.data;
         setSummary(payload.summary);
         setTrendData(payload.trendsLastSixMonths);
         setActivities(
@@ -79,6 +105,18 @@ export default function DeliveredServices() {
             time: formatRelativeTime(activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt),
             occurredAt: activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt,
             icon: activity.status === "DELIVERED" ? "delivered" : "request",
+          })),
+        );
+        setRequestedServices(
+          (requestedResponse.data.data ?? []).map((item) => ({
+            id: item.id,
+            title: item.requestTitle,
+            company: item.requester?.companyName ?? "Unknown Company",
+            category: item.serviceCategory?.categoryName ?? "-",
+            subtype: item.serviceSubtype?.name ?? "-",
+            preferredDeliveryDate: item.preferredDeliveryDate,
+            priority: item.priorityLevel,
+            createdAt: item.createdAt,
           })),
         );
       } catch (fetchError) {
@@ -127,6 +165,16 @@ export default function DeliveredServices() {
         return activityDate >= cutoffDate;
       }),
     [activities, cutoffDate],
+  );
+
+  const filteredRequestedServices = useMemo(
+    () =>
+      requestedServices.filter((item) => {
+        const createdAt = new Date(item.createdAt);
+        if (Number.isNaN(createdAt.getTime())) return false;
+        return createdAt >= cutoffDate;
+      }),
+    [cutoffDate, requestedServices],
   );
 
   return (
@@ -212,6 +260,56 @@ export default function DeliveredServices() {
           </div>
         </div>
       </div>
+
+      <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900">Requested Services</h3>
+            <p className="text-xs text-gray-500 mt-1">Open service requests submitted by members.</p>
+          </div>
+        </div>
+
+        {isLoading && requestedServices.length === 0 ? (
+          <p className="mt-3 text-xs text-gray-500">Loading requested services...</p>
+        ) : null}
+        {!isLoading && filteredRequestedServices.length === 0 ? (
+          <p className="mt-3 text-xs text-gray-500">No requested services found for the selected period.</p>
+        ) : null}
+
+        {filteredRequestedServices.length > 0 ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs">
+                <tr>
+                  <th className="p-3 text-left">REQUEST</th>
+                  <th className="p-3 text-left">COMPANY</th>
+                  <th className="p-3 text-left">CATEGORY</th>
+                  <th className="p-3 text-left">DELIVERY DATE</th>
+                  <th className="p-3 text-left">PRIORITY</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequestedServices.map((item) => (
+                  <tr key={item.id} className="border-t border-gray-100">
+                    <td className="p-3">
+                      <p className="font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500">{item.subtype}</p>
+                    </td>
+                    <td className="p-3 text-gray-700">{item.company}</td>
+                    <td className="p-3 text-gray-700">{item.category}</td>
+                    <td className="p-3 text-gray-700">{formatDateLabel(item.preferredDeliveryDate)}</td>
+                    <td className="p-3">
+                      <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                        {item.priority}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -287,4 +385,10 @@ function formatRelativeTime(dateLike: string) {
 
   const days = Math.floor(diffMs / dayMs);
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function formatDateLabel(dateLike: string) {
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }

@@ -6,7 +6,17 @@ export const TrustSealModal: React.FC = () => {
   const { formData, updateTrustSeal, setShowTrustSealModal, nextStep } = useRegistrationStore();
   const selected = formData.trustSeal.hasTrustSeal;
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+
+  const handleTrustSealSelect = (hasTrustSeal: boolean) => {
+    updateTrustSeal({ hasTrustSeal });
+    scrollToTop();
+  };
+
   const handleContinue = () => {
+    scrollToTop();
     setShowTrustSealModal(false);
     nextStep();
   };
@@ -49,7 +59,7 @@ export const TrustSealModal: React.FC = () => {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => updateTrustSeal({ hasTrustSeal: true })}
+                onClick={() => handleTrustSealSelect(true)}
                 className={[
                   'relative rounded-xl border px-4 py-4 text-left transition-all duration-150',
                   selected === true
@@ -85,7 +95,7 @@ export const TrustSealModal: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => updateTrustSeal({ hasTrustSeal: false })}
+                onClick={() => handleTrustSealSelect(false)}
                 className={[
                   'relative rounded-xl border px-4 py-4 text-left transition-all duration-150',
                   selected === false

@@ -64,11 +64,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
-    const { user: authUser, token } = await loginApi(email, password);
+    const { token } = await loginApi(email, password);
     setToken(token);
-    setUser(authUser);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(authUser));
-    return authUser;
+    const me = await getMeApi();
+    setUser(me);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(me));
+    return me;
   }, []);
 
   const logout = useCallback(async () => {

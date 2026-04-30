@@ -12,6 +12,8 @@ interface BackendUser {
   active: boolean;
   hasSeal: boolean;
   memberships?: { tier?: { tierName?: string } }[];
+  selectedTier?: { tierName?: string } | null;
+  subscriptions?: { tier?: { tierName?: string } | null }[];
 }
 
 interface LoginResponse {
@@ -43,7 +45,11 @@ function mapRole(role: 'ADMIN' | 'MEMBER'): UserRole {
 }
 
 export function backendUserToAuthUser(user: BackendUser): AuthUser {
-  const tier = user.memberships?.[0]?.tier?.tierName?.toLowerCase();
+  const tierName =
+    user.selectedTier?.tierName ??
+    user.subscriptions?.[0]?.tier?.tierName ??
+    user.memberships?.[0]?.tier?.tierName;
+  const tier = tierName?.toLowerCase();
   return {
     id: String(user.id),
     email: user.email,
