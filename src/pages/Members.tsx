@@ -341,9 +341,9 @@ export default function Members() {
             onChange={setStatusFilter}
           />
           <SelectFilter label="Any Tier" value={tierFilter} options={["Platinum", "Gold", "Silver", "Bronze"]} onChange={setTierFilter} />
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md text-xs text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap">
+          {/* <button className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-md text-xs text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap">
             <Filter size={13} /> More Filters
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -434,10 +434,10 @@ export default function Members() {
                     aria-label="Select all visible members"
                   />
                 </th>
-                <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">MEMBERSHIP ID</th>
+                {/* <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">MEMBERSHIP ID</th> */}
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">COMPANY NAME</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">MEMBERSHIP CLUSTER</th>
-                <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">COMPANY WEBSITE</th>
+                {/* <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">COMPANY WEBSITE</th> */}
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">CATEGORY</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">TIER</th>
                 <th className="text-left px-3 py-3 text-gray-400 font-semibold tracking-wide">STATUS</th>
@@ -472,10 +472,10 @@ export default function Members() {
                       aria-label={`Select ${m.name}`}
                     />
                   </td>
-                  <td className="px-3 py-3 text-blue-600 font-medium cursor-pointer hover:underline">{m.id}</td>
+                  {/* <td className="px-3 py-3 text-blue-600 font-medium cursor-pointer hover:underline">{m.id}</td> */}
                   <td className="px-3 py-3 font-semibold text-gray-800">{m.name}</td>
                   <td className="px-3 py-3 text-gray-500">{m.cluster}</td>
-                  <td className="px-3 py-3">
+                  {/* <td className="px-3 py-3">
                     {m.website !== "-" ? (
                       <a href={m.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate block max-w-[140px]">
                         {m.website}
@@ -483,7 +483,7 @@ export default function Members() {
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
-                  </td>
+                  </td> */}
                   <td className="px-3 py-3 text-gray-500">{m.category}</td>
                   <td className="px-3 py-3"><TierBadge tier={m.tier} /></td>
                   <td className="px-3 py-3"><StatusBadge status={m.status} /></td>

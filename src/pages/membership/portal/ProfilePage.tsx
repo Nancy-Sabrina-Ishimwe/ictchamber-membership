@@ -99,6 +99,7 @@ export const ProfilePage: React.FC = () => {
             address?: string | null;
             email: string;
             tin?: string | null;
+            logoUrl?: string | null;
             contacts?: Array<{
               id: number;
               fullName: string;
@@ -122,6 +123,7 @@ export const ProfilePage: React.FC = () => {
           email: payload.email ?? member.email,
           address: payload.address ?? member.address,
           tinNumber: payload.tin ?? member.tinNumber,
+          logoUrl: payload.logoUrl ?? undefined,
         });
 
         updateContacts(
@@ -382,17 +384,28 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-sm text-gray-400">This information will be displayed in the member directory.</p>
               </div>
             </div>
-            <div className="text-left sm:text-right">
+            {/* <div className="text-left sm:text-right">
               <p className="text-xs text-gray-900">Membership ID</p>
               <p className="mt-1 text-xl font-normal leading-none text-gray-900">{member.membershipId}</p>
-            </div>
+            </div> */}
           </div>
 
           <div className="px-4 sm:px-5 py-5">
             <div className="flex flex-col sm:flex-row items-start gap-6">
               <div className="flex flex-col items-center gap-2 flex-shrink-0">
                 <p className="text-xs font-semibold text-gray-400">Company Logo</p>
-                <div className="h-24 w-24 rounded-full border-2 border-dashed border-gray-200 bg-gray-50" />
+                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
+                  {member.logoUrl ? (
+                    <img
+                      src={member.logoUrl}
+                      alt={member.companyName ? `${member.companyName} logo` : 'Company logo'}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="px-2 text-center text-[10px] leading-snug text-gray-400">No logo uploaded</span>
+                  )}
+                </div>
               </div>
 
               <div className="flex-1 pt-1">
@@ -412,7 +425,7 @@ export const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-5 border-t border-gray-100 pt-5">
+            {/* <div className="mt-5 border-t border-gray-100 pt-5">
               <PortalTextarea
                 label="Company Profile & Description"
                 value={form.description}
@@ -420,12 +433,12 @@ export const ProfilePage: React.FC = () => {
                 rows={3}
                 className="min-h-[100px]"
               />
-            </div>
+            </div> */}
 
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+             {/* <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <PortalInput label="Website" value={form.website} onChange={set('website')} />
               <PortalInput label="Primary Phone" value={form.phone} onChange={set('phone')} />
-            </div>
+            </div>*/}
 
             <div className="mt-4">
               <PortalInput label="Physical Address" value={form.address} onChange={set('address')} />
@@ -446,7 +459,7 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-xs text-gray-400">Manage founders, CEOs, and designated representatives.</p>
               </div>
             </div>
-            <button
+            {/* <button
               onClick={openAddContactModal}
               className="flex items-center gap-2 rounded-sm border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-900 transition-colors hover:border-gray-300"
             >
@@ -454,7 +467,7 @@ export const ProfilePage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
               </svg>
               Add Contact
-            </button>
+            </button> */}
           </div>
 
           <div className="space-y-3 px-4 sm:px-5 py-5">
@@ -496,7 +509,7 @@ export const ProfilePage: React.FC = () => {
                     </svg>
                     Verified
                   </div>
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => void handleSendVerificationLink()}
                     disabled={sendingVerification}
@@ -506,7 +519,7 @@ export const ProfilePage: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                     </svg>
                     {sendingVerification ? 'Sending...' : 'Send Verification Link'}
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>

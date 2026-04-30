@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { Link } from "react-router-dom";
 
 type DashboardSummary = {
   totalMembers: number;
@@ -456,9 +457,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
+          <Link to="/admin/messaging" className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
             <Mail size={15} className="text-gray-500" /> Bulk Message
-          </button>
+          </Link>
           <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-50 transition-colors">
             <Download size={15} className="text-gray-500" /> Export
           </button>
@@ -468,13 +469,13 @@ export default function Dashboard() {
       {/* Filter Bar */}
       <div className="bg-white rounded-md border border-gray-200 shadow-sm px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative">
-          <button
+          {/* <button
             type="button"
             onClick={() => setShowFilterMenu((prev) => !prev)}
             className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 transition-colors"
           >
             <Filter size={14} /> Filter
-          </button>
+          </button> */}
           {showFilterMenu ? (
             <div className="absolute left-0 top-full z-20 mt-2 w-48 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
               <p className="px-1 pb-1 text-[11px] font-semibold text-gray-500">Activity status</p>

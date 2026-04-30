@@ -4,10 +4,12 @@ import {
   ClipboardCheck,
   UserPlus2,
   Activity,
+  Ellipsis,
   Users,
+  X,
 } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
@@ -35,6 +37,12 @@ type RequestedServiceItem = {
   preferredDeliveryDate: string;
   priority: string;
   createdAt: string;
+  requesterId: number;
+  benefittingMemberId: number | null;
+  detailedDescription: string;
+  preferredContactMethod: string;
+  requesterEmail: string;
+  benefittingCompany: string | null;
 };
 
 type ServicesAnalyticsResponse = {
@@ -73,61 +81,102 @@ export default function DeliveredServices() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [requestedServices, setRequestedServices] = useState<RequestedServiceItem[]>([]);
   const [rangeDays, setRangeDays] = useState(30);
+  const [deliveringRequestId, setDeliveringRequestId] = useState<number | null>(null);
+  const [viewingRequest, setViewingRequest] = useState<RequestedServiceItem | null>(null);
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
+  const loadDashboard = useCallback(async (options?: { quiet?: boolean }) => {
+    const quiet = options?.quiet ?? false;
+    try {
+      if (!quiet) {
         setError(null);
         setIsLoading(true);
-        const [analyticsResponse, requestedResponse] = await Promise.all([
-          api.get<ServicesAnalyticsResponse>("/analytics/services/superadmin"),
-          api.get<{
-            data?: Array<{
-              id: number;
-              requestTitle: string;
-              priorityLevel: string;
-              preferredDeliveryDate: string;
-              createdAt: string;
-              requester?: { companyName?: string | null } | null;
-              serviceCategory?: { categoryName?: string | null } | null;
-              serviceSubtype?: { name?: string | null } | null;
-            }>;
-          }>("/service-requests/requested"),
-        ]);
-        const payload = analyticsResponse.data.data;
-        setSummary(payload.summary);
-        setTrendData(payload.trendsLastSixMonths);
-        setActivities(
-          payload.recentActivity.map((activity) => ({
-            id: activity.id,
-            title: activity.title,
-            company: activity.company,
-            time: formatRelativeTime(activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt),
-            occurredAt: activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt,
-            icon: activity.status === "DELIVERED" ? "delivered" : "request",
-          })),
-        );
-        setRequestedServices(
-          (requestedResponse.data.data ?? []).map((item) => ({
-            id: item.id,
-            title: item.requestTitle,
-            company: item.requester?.companyName ?? "Unknown Company",
-            category: item.serviceCategory?.categoryName ?? "-",
-            subtype: item.serviceSubtype?.name ?? "-",
-            preferredDeliveryDate: item.preferredDeliveryDate,
-            priority: item.priorityLevel,
-            createdAt: item.createdAt,
-          })),
-        );
-      } catch (fetchError) {
-        setError(fetchError instanceof Error ? fetchError.message : "Failed to load services analytics.");
-      } finally {
+      }
+      const [analyticsResponse, requestedResponse] = await Promise.all([
+        api.get<ServicesAnalyticsResponse>("/analytics/services/superadmin"),
+        api.get<{
+          data?: Array<{
+            id: number;
+            requestTitle: string;
+            detailedDescription: string;
+            preferredContactMethod: string;
+            priorityLevel: string;
+            preferredDeliveryDate: string;
+            createdAt: string;
+            requester?: { id?: number; email?: string | null; companyName?: string | null } | null;
+            benefittingMember?: { id?: number; companyName?: string | null } | null;
+            serviceCategory?: { categoryName?: string | null } | null;
+            serviceSubtype?: { name?: string | null } | null;
+          }>;
+        }>("/service-requests/requested"),
+      ]);
+      const payload = analyticsResponse.data.data;
+      setSummary(payload.summary);
+      setTrendData(payload.trendsLastSixMonths);
+      setActivities(
+        payload.recentActivity.map((activity) => ({
+          id: activity.id,
+          title: activity.title,
+          company: activity.company,
+          time: formatRelativeTime(activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt),
+          occurredAt: activity.deliveredAt ?? activity.updatedAt ?? activity.createdAt,
+          icon: activity.status === "DELIVERED" ? "delivered" : "request",
+        })),
+      );
+      setRequestedServices(
+        (requestedResponse.data.data ?? []).map((item) => ({
+          id: item.id,
+          title: item.requestTitle,
+          company: item.requester?.companyName ?? "Unknown Company",
+          category: item.serviceCategory?.categoryName ?? "-",
+          subtype: item.serviceSubtype?.name ?? "-",
+          preferredDeliveryDate: item.preferredDeliveryDate,
+          priority: item.priorityLevel,
+          createdAt: item.createdAt,
+          requesterId: item.requester?.id ?? 0,
+          benefittingMemberId: item.benefittingMember?.id ?? null,
+          detailedDescription: item.detailedDescription ?? "",
+          preferredContactMethod: item.preferredContactMethod ?? "-",
+          requesterEmail: item.requester?.email ?? "",
+          benefittingCompany: item.benefittingMember?.companyName ?? null,
+        })),
+      );
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Failed to load services analytics.");
+    } finally {
+      if (!quiet) {
         setIsLoading(false);
       }
-    };
-
-    void fetchAnalytics();
+    }
   }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const handleMarkRequestDelivered = async (item: RequestedServiceItem) => {
+    const benefittingMemberId = item.benefittingMemberId ?? item.requesterId;
+    if (!benefittingMemberId) {
+      setError("Cannot mark as delivered: request has no member on record.");
+      return;
+    }
+    try {
+      setDeliveringRequestId(item.id);
+      setError(null);
+      const deliveryDate = new Date().toISOString();
+      await api.put(`/service-requests/${item.id}/deliver`, {
+        benefittingMemberId,
+        servicesDelivered: item.title,
+        initialService: item.title,
+        deliveryDate,
+        additionalNotes: "",
+      });
+      await loadDashboard({ quiet: true });
+    } catch (deliverError) {
+      setError(deliverError instanceof Error ? deliverError.message : "Failed to mark service as delivered.");
+    } finally {
+      setDeliveringRequestId(null);
+    }
+  };
 
   const stats = useMemo(
     () => [
@@ -286,6 +335,7 @@ export default function DeliveredServices() {
                   <th className="p-3 text-left">CATEGORY</th>
                   <th className="p-3 text-left">DELIVERY DATE</th>
                   <th className="p-3 text-left">PRIORITY</th>
+                  <th className="p-3 text-left">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,12 +353,179 @@ export default function DeliveredServices() {
                         {item.priority}
                       </span>
                     </td>
+                    <td className="p-3">
+                      <RequestedServiceRowActions
+                        item={item}
+                        delivering={deliveringRequestId === item.id}
+                        onViewRequest={setViewingRequest}
+                        onMarkDelivered={handleMarkRequestDelivered}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : null}
+      </div>
+
+      {viewingRequest ? (
+        <RequestedServiceViewModal item={viewingRequest} onClose={() => setViewingRequest(null)} />
+      ) : null}
+    </div>
+  );
+}
+
+function closeDetailsMenu(trigger: HTMLElement) {
+  const root = trigger.closest("details");
+  if (root) {
+    root.open = false;
+  }
+}
+
+function RequestedServiceRowActions({
+  item,
+  delivering,
+  onViewRequest,
+  onMarkDelivered,
+}: {
+  item: RequestedServiceItem;
+  delivering: boolean;
+  onViewRequest: (item: RequestedServiceItem) => void;
+  onMarkDelivered: (item: RequestedServiceItem) => void | Promise<void>;
+}) {
+  const canDeliver = Boolean(item.requesterId);
+
+  return (
+    <details className="relative inline-block">
+      <summary
+        className="list-none cursor-pointer rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 inline-flex items-center justify-center [&::-webkit-details-marker]:hidden"
+        aria-label={`Actions for ${item.title}`}
+      >
+        <Ellipsis size={18} />
+      </summary>
+      <div className="absolute right-0 top-full mt-1 z-20 min-w-[12rem] rounded-md border border-gray-200 bg-white py-1 text-left text-sm shadow-lg">
+        <button
+          type="button"
+          className="w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+          onClick={(event) => {
+            event.preventDefault();
+            closeDetailsMenu(event.currentTarget);
+            onViewRequest(item);
+          }}
+        >
+          View request
+        </button>
+        <button
+          type="button"
+          disabled={delivering || !canDeliver}
+          className="w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={(event) => {
+            event.preventDefault();
+            closeDetailsMenu(event.currentTarget);
+            void onMarkDelivered(item);
+          }}
+        >
+          {delivering ? "Marking as delivered…" : "Mark as delivered"}
+        </button>
+      </div>
+    </details>
+  );
+}
+
+function RequestedServiceViewModal({ item, onClose }: { item: RequestedServiceItem; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const showBenefitting =
+    item.benefittingMemberId != null &&
+    item.benefittingCompany &&
+    item.benefittingCompany !== item.company;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="service-request-view-title"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 p-4 border-b border-gray-100">
+          <h3 id="service-request-view-title" className="text-base font-semibold text-gray-900 pr-2">
+            Service request
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-4 space-y-4 text-sm text-gray-700">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Title</p>
+            <p className="mt-0.5 font-medium text-gray-900">{item.title}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Company</p>
+            <p className="mt-0.5">{item.company}</p>
+          </div>
+          {item.requesterEmail ? (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Requester email</p>
+              <p className="mt-0.5 break-all">{item.requesterEmail}</p>
+            </div>
+          ) : null}
+          {showBenefitting ? (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Benefitting member</p>
+              <p className="mt-0.5">{item.benefittingCompany}</p>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</p>
+              <p className="mt-0.5">{item.category}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Subtype</p>
+              <p className="mt-0.5">{item.subtype}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Preferred delivery</p>
+              <p className="mt-0.5">{formatDateLabel(item.preferredDeliveryDate)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Priority</p>
+              <p className="mt-0.5">{item.priority}</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted</p>
+            <p className="mt-0.5">{formatDateLabel(item.createdAt)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Preferred contact</p>
+            <p className="mt-0.5">{item.preferredContactMethod}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-gray-800">{item.detailedDescription || "—"}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
