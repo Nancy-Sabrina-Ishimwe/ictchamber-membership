@@ -1,5 +1,5 @@
-import { Search, Filter, Plus, Building2, CalendarDays, Eye, Pencil, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Building2, CalendarDays, ChevronDown, Eye, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import ServiceRecordModal, { type ServiceRecordFormValue } from "../components/ServiceRecordModal";
 import { api } from "../lib/api";
 
@@ -13,6 +13,10 @@ type Service = {
   companies: string[];
   deliveredServices: string[];
   date: string;
+  /** Parsed delivery moment for range filters; null when unknown */
+  deliveryTimestamp: number | null;
+  category: string | null;
+  subtype: string | null;
   status: "Completed" | "In Progress" | "Pending Review";
   notes?: string;
 };
@@ -25,7 +29,11 @@ export default function DeliveredServices() {
   const [viewingService, setViewingService] = useState<Service | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | Service["status"]>("All");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [subtypeFilter, setSubtypeFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,28 +52,42 @@ export default function DeliveredServices() {
           benefittingMember?: { companyName?: string | null } | null;
           servicesDelivered?: string | null;
           deliveryDate?: string | null;
+          deliveredAt?: string | null;
           additionalNotes?: string | null;
         }>;
       }>("/service-requests/delivered");
 
-      const mapped: Service[] = (response.data.data ?? []).map((item) => ({
-        id: String(item.id),
-        name: item.requestTitle || item.servicesDelivered || "Untitled Service",
-        code: `SRV-${String(item.id).padStart(6, "0")}`,
-        company: item.benefittingMember?.companyName ?? "Unknown Company",
-        companies: item.benefittingMember?.companyName ? [item.benefittingMember.companyName] : [],
-        deliveredServices: item.servicesDelivered
-          ? item.servicesDelivered
-              .split(",")
-              .map((part) => part.trim())
-              .filter(Boolean)
-          : item.requestTitle
-            ? [item.requestTitle]
-            : [],
-        date: item.deliveryDate ? formatDate(item.deliveryDate) : "-",
-        status: "Completed",
-        notes: item.additionalNotes ?? "",
-      }));
+      const mapped: Service[] = (response.data.data ?? []).map((item) => {
+        const rawIso = item.deliveryDate ?? item.deliveredAt ?? null;
+        const parsed = rawIso ? new Date(rawIso).getTime() : NaN;
+        const categoryName =
+          typeof item.serviceCategory?.categoryName === "string"
+            ? item.serviceCategory.categoryName.trim()
+            : null;
+        const subtypeName =
+          typeof item.serviceSubtype?.name === "string" ? item.serviceSubtype.name.trim() : null;
+        return {
+          id: String(item.id),
+          name: item.requestTitle || item.servicesDelivered || "Untitled Service",
+          code: `SRV-${String(item.id).padStart(6, "0")}`,
+          company: item.benefittingMember?.companyName ?? "Unknown Company",
+          companies: item.benefittingMember?.companyName ? [item.benefittingMember.companyName] : [],
+          deliveredServices: item.servicesDelivered
+            ? item.servicesDelivered
+                .split(",")
+                .map((part) => part.trim())
+                .filter(Boolean)
+            : item.requestTitle
+              ? [item.requestTitle]
+              : [],
+          date: rawIso ? formatDate(rawIso) : "-",
+          deliveryTimestamp: Number.isFinite(parsed) ? parsed : null,
+          category: categoryName?.length ? categoryName : null,
+          subtype: subtypeName?.length ? subtypeName : null,
+          status: "Completed",
+          notes: item.additionalNotes ?? "",
+        };
+      });
       setServices(mapped);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Failed to load delivered services.");
@@ -136,14 +158,89 @@ export default function DeliveredServices() {
     })();
   };
 
+  const companyOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of services) {
+      if (s.company) set.add(s.company);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [services]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of services) {
+      if (s.category) set.add(s.category);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [services]);
+
+  const subtypeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of services) {
+      if (!s.subtype) continue;
+      if (categoryFilter !== "all" && s.category !== categoryFilter) continue;
+      set.add(s.subtype);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [services, categoryFilter]);
+
+  const rangeStartMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+  const rangeEndMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+
   const filteredServices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return services.filter((service) => {
-      if (statusFilter !== "All" && service.status !== statusFilter) return false;
+      if (companyFilter !== "all" && service.company !== companyFilter) return false;
+      if (categoryFilter !== "all" && service.category !== categoryFilter) return false;
+      if (subtypeFilter !== "all" && service.subtype !== subtypeFilter) return false;
+
+      if (rangeStartMs !== null || rangeEndMs !== null) {
+        if (service.deliveryTimestamp === null) return false;
+        if (rangeStartMs !== null && service.deliveryTimestamp < rangeStartMs) return false;
+        if (rangeEndMs !== null && service.deliveryTimestamp > rangeEndMs) return false;
+      }
+
       if (!query) return true;
-      return `${service.name} ${service.company} ${service.code}`.toLowerCase().includes(query);
+      const haystack = [
+        service.name,
+        service.company,
+        service.code,
+        service.notes,
+        service.category,
+        service.subtype,
+        ...service.deliveredServices,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
     });
-  }, [services, searchQuery, statusFilter]);
+  }, [
+    services,
+    searchQuery,
+    companyFilter,
+    categoryFilter,
+    subtypeFilter,
+    rangeStartMs,
+    rangeEndMs,
+  ]);
+
+  const filterBarActive =
+    searchQuery.trim() !== "" ||
+    companyFilter !== "all" ||
+    categoryFilter !== "all" ||
+    subtypeFilter !== "all" ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setCompanyFilter("all");
+    setCategoryFilter("all");
+    setSubtypeFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredServices.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -151,8 +248,12 @@ export default function DeliveredServices() {
   const paginatedServices = filteredServices.slice(startIndex, startIndex + pageSize);
 
   useEffect(() => {
+    setSubtypeFilter("all");
+  }, [categoryFilter]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, companyFilter, categoryFilter, subtypeFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -180,30 +281,113 @@ export default function DeliveredServices() {
         </button>
       </div>
 
-      {/* SEARCH + FILTER */}
-      <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-        <div className="flex items-center border border-gray-200 rounded px-3 py-2 w-full sm:max-w-md">
-          <Search size={16} className="text-gray-400 flex-shrink-0" />
+      {/* FILTERS */}
+      <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4 space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Layers size={17} className="text-gray-400 flex-shrink-0" aria-hidden />
+            <span>Filter records</span>
+            {filterBarActive ? (
+              <span className="text-xs font-normal text-gray-500">
+                ({filteredServices.length} of {services.length})
+              </span>
+            ) : null}
+          </div>
+          {filterBarActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center justify-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors py-1.5 px-2 -mx-2 sm:mx-0 rounded-md hover:bg-gray-50"
+            >
+              <X size={15} className="text-gray-400" aria-hidden />
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2">
+          <Search size={16} className="text-gray-400 flex-shrink-0" aria-hidden />
           <input
-            placeholder="Search services or companies..."
+            type="search"
+            placeholder="Search title, beneficiary, notes, category, service type..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className="ml-2 outline-none text-sm w-full bg-transparent"
+            className="outline-none text-sm w-full min-w-0 bg-transparent placeholder:text-gray-400"
+            aria-label="Search delivered services"
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            setStatusFilter((prev) =>
-              prev === "All" ? "Completed" : prev === "Completed" ? "In Progress" : prev === "In Progress" ? "Pending Review" : "All",
-            )
-          }
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-gray-200 px-4 py-2 rounded-md text-sm hover:bg-gray-50 transition-colors"
-        >
-          <Filter size={16} />
-          Filter ({statusFilter})
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          <FilterSelect
+            label="Beneficiary company"
+            value={companyFilter}
+            onChange={setCompanyFilter}
+            placeholder="All companies"
+            icon={<Building2 size={14} className="text-gray-400" />}
+          >
+            {companyOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Category"
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+            placeholder="All categories"
+          >
+            {categoryOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Service type"
+            value={subtypeFilter}
+            onChange={setSubtypeFilter}
+            placeholder="All types"
+          >
+            {subtypeOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-medium text-gray-500">Delivered from</span>
+            <label className="relative flex items-center rounded-md border border-gray-200 bg-white">
+              <CalendarDays size={14} className="absolute left-2.5 text-gray-400 pointer-events-none" aria-hidden />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                max={dateTo || undefined}
+                className="w-full rounded-md bg-transparent py-2 pl-8 pr-2 text-sm outline-none focus:ring-1 focus:ring-yellow-400/80 focus:border-yellow-400"
+                aria-label="Delivery date from"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-medium text-gray-500">Delivered to</span>
+            <label className="relative flex items-center rounded-md border border-gray-200 bg-white">
+              <CalendarDays size={14} className="absolute left-2.5 text-gray-400 pointer-events-none" aria-hidden />
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                min={dateFrom || undefined}
+                className="w-full rounded-md bg-transparent py-2 pl-8 pr-2 text-sm outline-none focus:ring-1 focus:ring-yellow-400/80 focus:border-yellow-400"
+                aria-label="Delivery date to"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
@@ -217,6 +401,13 @@ export default function DeliveredServices() {
       <div className="bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden">
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-gray-100">
+          {filteredServices.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-500">
+              {services.length === 0
+                ? "No delivered service records yet."
+                : "No records match your filters. Adjust filters or tap Clear filters."}
+            </div>
+          ) : null}
           {paginatedServices.map((s) => (
             <div key={s.id} className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -289,6 +480,15 @@ export default function DeliveredServices() {
 
             {/* BODY */}
             <tbody>
+              {filteredServices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-sm text-gray-500">
+                    {services.length === 0
+                      ? "No delivered service records yet."
+                      : "No records match your filters. Adjust filters or use Clear filters."}
+                  </td>
+                </tr>
+              ) : null}
               {paginatedServices.map((s) => (
                 <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50">
 
@@ -406,6 +606,56 @@ export default function DeliveredServices() {
           onClose={() => setEditingService(null)}
         />
       )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  placeholder,
+  icon,
+  disabled,
+  hint,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  hint?: string;
+  children: ReactNode;
+}) {
+  const id = label.replace(/\s+/g, "-").toLowerCase();
+  return (
+    <div className="space-y-1.5 min-w-0">
+      <label htmlFor={id} className="block text-xs font-medium text-gray-500">
+        {label}
+      </label>
+      <div className="relative">
+        {icon ? (
+          <span className="absolute left-2.5 top-1/2 z-[1] -translate-y-1/2 pointer-events-none">{icon}</span>
+        ) : null}
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          className={`w-full appearance-none rounded-md border border-gray-200 bg-white py-2 pr-9 text-sm text-gray-900 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/80 disabled:cursor-not-allowed disabled:opacity-50 ${icon ? "pl-8" : "pl-2.5"}`}
+        >
+          <option value="all">{placeholder}</option>
+          {children}
+        </select>
+        <ChevronDown
+          size={15}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"
+          aria-hidden
+        />
+      </div>
+      {hint ? <p className="text-[11px] leading-snug text-gray-400">{hint}</p> : null}
     </div>
   );
 }
