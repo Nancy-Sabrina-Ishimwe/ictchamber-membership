@@ -12,7 +12,7 @@ import {
   Printer,
   FileDown,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   LineChart,
@@ -27,55 +27,27 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import { getClustersApi, type ClusterItem } from "../services/authService";
+import { getRenewals } from "../services/renewalService";
+import {
+  getReportsMembersByCluster,
+  getReportsMembersByTier,
+  getReportsMembershipRevenue,
+  getReportsPendingApplicationsSummary,
+  getReportsRevenueGrowth,
+  getReportsTotalMembers,
+  type MembersByClusterItem,
+  type MembersByTierItem,
+  type ReportsFilterParams,
+  type RevenueGrowthPoint,
+} from "../services/reportsService";
+
 /* ================= TYPES ================= */
 type PieItem = {
   name: string;
   value: number;
   percent?: string;
 };
-
-/* ================= DATA ================= */
-
-const revenueData = [
-  { month: "Jan", value: 6 },
-  { month: "Feb", value: 7 },
-  { month: "Mar", value: 6 },
-  { month: "Apr", value: 9 },
-  { month: "May", value: 11 },
-  { month: "Jun", value: 13 },
-  { month: "Jul", value: 12 },
-  { month: "Aug", value: 14 },
-  { month: "Sep", value: 16 },
-  { month: "Oct", value: 18 },
-  { month: "Nov", value: 20 },
-  { month: "Dec", value: 22 },
-];
-
-const categoryData: PieItem[] = [
-  { name: "Platinum", value: 450 },
-  { name: "Gold", value: 320 },
-  { name: "Silver", value: 250 },
-  { name: "Bronze", value: 220 },
-];
-
-const clusterData: PieItem[] = [
-  { name: "Fintech", value: 142, percent: "16.0%" },
-  { name: "Drones and Robotics", value: 38, percent: "4.3%" },
-  { name: "Infrastructure and connectivity", value: 87, percent: "9.8%" },
-  { name: "Artificial intelligence", value: 64, percent: "7.2%" },
-  { name: "E-commerce and e-Services", value: 115, percent: "13.0%" },
-  { name: "IT Hardware and Solutions", value: 92, percent: "10.4%" },
-  { name: "Multimedia and Digital agents", value: 53, percent: "6.0%" },
-];
-
-const typeData: PieItem[] = [
-  { name: "Commercial Company", value: 50 },
-  { name: "Program Partners", value: 20 },
-  { name: "Multiple Business", value: 45 },
-  { name: "Program", value: 13 },
-  { name: "Associated", value: 25 },
-  { name: "Individual Professional", value: 8 },
-];
 
 const COLORS = [
   "#0F2A44",
@@ -87,40 +59,160 @@ const COLORS = [
   "#EC4899",
 ];
 
+function defaultDateRangeLocal(): { from: string; to: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const to = `${y}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const from = `${y}-01-01`;
+  return { from, to };
+}
+
+function toISODateTimeStart(day: string): string {
+  return new Date(`${day}T00:00:00`).toISOString();
+}
+
+function toISODateTimeEnd(day: string): string {
+  return new Date(`${day}T23:59:59.999`).toISOString();
+}
+
+function formatRwf(n: number): string {
+  return `${n.toLocaleString()} RWF`;
+}
+
+function formatShortNumber(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(Math.round(n));
+}
+
+function formatPercentChange(pct: number | null): string | undefined {
+  if (pct === null || Number.isNaN(pct)) return undefined;
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+type TierOption = { id: number; name: string };
+
 /* ================= PAGE ================= */
 
 export default function Reports() {
   const navigate = useNavigate();
   const [typeFilterOpen, setTypeFilterOpen] = useState(false);
   const [clusterFilterOpen, setClusterFilterOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
-  const [clusterSearch, setClusterSearch] = useState("");
   const typeRef = useRef<HTMLDivElement | null>(null);
   const clusterRef = useRef<HTMLDivElement | null>(null);
 
-  const typeOptions = ["Platinum", "Gold", "Silver", "Bronze"];
-  const clusterOptions = [
-    "FinTech",
-    "Drones and Robotics",
-    "Infrastructure and Connectivity",
-    "Artificial Intelligence",
-    "Hubs, Incubators and Capacity Building",
-    "AgriTech",
-    "E-commerce and E-services",
-    "IT Hardware and Solutions",
-    "Multimedia and Digital Agents",
-    "EdTech",
-    "HealthTech",
-  ];
+  const defaults = useMemo(() => defaultDateRangeLocal(), []);
 
-  const filteredClusters = useMemo(
-    () =>
-      clusterOptions.filter((cluster) =>
-        cluster.toLowerCase().includes(clusterSearch.toLowerCase())
-      ),
-    [clusterSearch]
-  );
+  const [draftDateFrom, setDraftDateFrom] = useState(defaults.from);
+  const [draftDateTo, setDraftDateTo] = useState(defaults.to);
+  const [draftTierId, setDraftTierId] = useState<number | null>(null);
+  const [draftClusterId, setDraftClusterId] = useState<number | null>(null);
+
+  const [appliedDateFrom, setAppliedDateFrom] = useState(defaults.from);
+  const [appliedDateTo, setAppliedDateTo] = useState(defaults.to);
+  const [appliedTierId, setAppliedTierId] = useState<number | null>(null);
+  const [appliedClusterId, setAppliedClusterId] = useState<number | null>(null);
+
+  const [clusters, setClusters] = useState<ClusterItem[]>([]);
+  const [tierOptions, setTierOptions] = useState<TierOption[]>([]);
+  const [clusterSearch, setClusterSearch] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [pendingApplications, setPendingApplications] = useState(0);
+  const [renewalsDue, setRenewalsDue] = useState(0);
+  const [membershipRevenue, setMembershipRevenue] = useState({ total: 0, changePct: null as number | null });
+  const [revenueSeries, setRevenueSeries] = useState<RevenueGrowthPoint[]>([]);
+  const [clusterPie, setClusterPie] = useState<MembersByClusterItem[]>([]);
+  const [tierPie, setTierPie] = useState<MembersByTierItem[]>([]);
+
+  const reportFilters = useMemo((): ReportsFilterParams => {
+    return {
+      dateFrom: toISODateTimeStart(appliedDateFrom),
+      dateTo: toISODateTimeEnd(appliedDateTo),
+      tierId: appliedTierId ?? undefined,
+      clusterId: appliedClusterId ?? undefined,
+      active: true,
+      memberPaidInPeriod: false,
+    };
+  }, [appliedDateFrom, appliedDateTo, appliedTierId, appliedClusterId]);
+
+  const loadMeta = useCallback(async () => {
+    try {
+      const [clusterList, tierRows] = await Promise.all([
+        getClustersApi(),
+        getReportsMembersByTier({ active: true, pageSize: 100 }),
+      ]);
+      setClusters(clusterList);
+      const tiers: TierOption[] = [];
+      const seen = new Set<number>();
+      for (const row of tierRows) {
+        if (row.tierId != null && !seen.has(row.tierId)) {
+          seen.add(row.tierId);
+          tiers.push({ id: row.tierId, name: row.name });
+        }
+      }
+      tiers.sort((a, b) => a.name.localeCompare(b.name));
+      setTierOptions(tiers);
+    } catch {
+      setClusters([]);
+      setTierOptions([]);
+    }
+  }, []);
+
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [
+        membersCount,
+        pending,
+        revenue,
+        growth,
+        byCluster,
+        byTier,
+        renewals,
+      ] = await Promise.all([
+        getReportsTotalMembers(reportFilters),
+        getReportsPendingApplicationsSummary(),
+        getReportsMembershipRevenue(reportFilters),
+        getReportsRevenueGrowth({
+          ...reportFilters,
+          granularity: "month",
+          page: 1,
+          pageSize: 36,
+        }),
+        getReportsMembersByCluster({ ...reportFilters, pageSize: 500 }),
+        getReportsMembersByTier({ ...reportFilters, pageSize: 100 }),
+        getRenewals(),
+      ]);
+
+      setTotalMembers(membersCount);
+      setPendingApplications(pending);
+      setMembershipRevenue({ total: revenue.totalRevenue, changePct: revenue.revenueChangePercent });
+      setRevenueSeries(growth);
+      setClusterPie(byCluster);
+      setTierPie(byTier);
+      setRenewalsDue(renewals.length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load reports.");
+    } finally {
+      setLoading(false);
+    }
+  }, [reportFilters]);
+
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -137,16 +229,60 @@ export default function Reports() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
+  const filteredClusters = useMemo(
+    () =>
+      clusters.filter((c) =>
+        c.clusterName.toLowerCase().includes(clusterSearch.toLowerCase()),
+      ),
+    [clusters, clusterSearch],
+  );
+
+  const tierLabel = draftTierId === null ? "All Types" : tierOptions.find((t) => t.id === draftTierId)?.name ?? "All Types";
+  const clusterLabel =
+    draftClusterId === null
+      ? "All Clusters"
+      : clusters.find((c) => c.id === draftClusterId)?.clusterName ?? "All Clusters";
+
+  const lineChartData = useMemo(
+    () => revenueSeries.map((p) => ({ month: p.label, value: p.value })),
+    [revenueSeries],
+  );
+
+  const revenueMax = useMemo(() => {
+    const m = Math.max(...lineChartData.map((d) => d.value), 0);
+    return m <= 0 ? 1 : Math.ceil(m * 1.1);
+  }, [lineChartData]);
+
+  const categoryData: PieItem[] = useMemo(
+    () => tierPie.map((t) => ({ name: t.name, value: t.value, percent: t.percent })),
+    [tierPie],
+  );
+
+  const clusterData: PieItem[] = useMemo(
+    () => clusterPie.map((c) => ({ name: c.name, value: c.value, percent: c.percent })),
+    [clusterPie],
+  );
+
+  const revenueSub = formatPercentChange(membershipRevenue.changePct);
+
   return (
     <div className="space-y-6 overflow-x-hidden">
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="inline-flex bg-white border border-gray-200 rounded-md p-1 w-full sm:w-auto">
-          <button className="flex-1 sm:flex-none px-3 py-2 bg-yellow-500 text-black rounded-md text-xs inline-flex items-center justify-center gap-1.5 font-medium">
+          <button
+            type="button"
+            className="flex-1 sm:flex-none px-3 py-2 bg-yellow-500 text-black rounded-md text-xs inline-flex items-center justify-center gap-1.5 font-medium"
+          >
             <LayoutGrid size={12} className="text-yellow-900" />
             Overview
           </button>
 
           <button
+            type="button"
             onClick={() => navigate("/admin/reports/service-usage")}
             className="flex-1 sm:flex-none px-3 py-2 text-gray-500 rounded-md text-xs inline-flex items-center justify-center gap-1.5 hover:text-gray-700"
           >
@@ -166,26 +302,48 @@ export default function Reports() {
 
       {/* FILTERS */}
       <div className="bg-white p-4 rounded-md border flex flex-col lg:flex-row lg:items-end gap-3 relative min-w-0">
-        <FilterBox label="Date Range" value="YTD (Jan - Dec)" />
+        <div className="flex flex-col text-sm w-full lg:flex-1 min-w-0">
+          <span className="text-gray-400 text-xs mb-1">Date range</span>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="date"
+              value={draftDateFrom}
+              onChange={(e) => setDraftDateFrom(e.target.value)}
+              className="border px-3 py-2 rounded-md text-sm w-full sm:flex-1 min-w-0"
+            />
+            <input
+              type="date"
+              value={draftDateTo}
+              onChange={(e) => setDraftDateTo(e.target.value)}
+              className="border px-3 py-2 rounded-md text-sm w-full sm:flex-1 min-w-0"
+            />
+          </div>
+        </div>
 
         <div className="relative w-full lg:w-auto" ref={typeRef}>
           <FilterTrigger
             label="Membership Type"
-            value={selectedType ?? "All Types"}
+            value={tierLabel}
             onClick={() => {
               setTypeFilterOpen((prev) => !prev);
               setClusterFilterOpen(false);
             }}
           />
           {typeFilterOpen && (
-            <FilterDropdown title="STATUS FILTER">
-              {typeOptions.map((type) => (
+            <FilterDropdown title="TIER FILTER">
+              <RadioRow
+                label="All Types"
+                name="membership-type"
+                checked={draftTierId === null}
+                onChange={() => setDraftTierId(null)}
+              />
+              {tierOptions.map((tier) => (
                 <RadioRow
-                  key={type}
-                  label={type}
+                  key={tier.id}
+                  label={tier.name}
                   name="membership-type"
-                  checked={selectedType === type}
-                  onChange={() => setSelectedType(type)}
+                  checked={draftTierId === tier.id}
+                  onChange={() => setDraftTierId(tier.id)}
                 />
               ))}
             </FilterDropdown>
@@ -195,14 +353,14 @@ export default function Reports() {
         <div className="relative w-full lg:w-auto" ref={clusterRef}>
           <FilterTrigger
             label="Membership Clusters"
-            value={selectedCluster ?? "All Clusters"}
+            value={clusterLabel}
             onClick={() => {
               setClusterFilterOpen((prev) => !prev);
               setTypeFilterOpen(false);
             }}
           />
           {clusterFilterOpen && (
-            <FilterDropdown title="STATUS FILTER">
+            <FilterDropdown title="CLUSTER FILTER">
               <div className="flex items-center border border-gray-200 rounded-md px-2 py-2 mb-2 text-sm">
                 <Search size={14} className="text-gray-400 flex-shrink-0" />
                 <input
@@ -212,82 +370,122 @@ export default function Reports() {
                   className="ml-2 outline-none w-full bg-transparent"
                 />
               </div>
+              <RadioRow
+                label="All Clusters"
+                name="membership-cluster"
+                checked={draftClusterId === null}
+                onChange={() => setDraftClusterId(null)}
+              />
               {filteredClusters.map((cluster) => (
                 <RadioRow
-                  key={cluster}
-                  label={cluster}
+                  key={cluster.id}
+                  label={cluster.clusterName}
                   name="membership-cluster"
-                  checked={selectedCluster === cluster}
-                  onChange={() => setSelectedCluster(cluster)}
+                  checked={draftClusterId === cluster.id}
+                  onChange={() => setDraftClusterId(cluster.id)}
                 />
               ))}
             </FilterDropdown>
           )}
         </div>
 
-        <button className="w-full lg:w-auto lg:ml-auto bg-[#0F2A44] text-white px-4 py-2 rounded-md text-sm flex items-center justify-center gap-2">
-          Apply Filters
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => {
+            setAppliedDateFrom(draftDateFrom);
+            setAppliedDateTo(draftDateTo);
+            setAppliedTierId(draftTierId);
+            setAppliedClusterId(draftClusterId);
+          }}
+          className="w-full lg:w-auto lg:ml-auto bg-[#0F2A44] text-white px-4 py-2 rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {loading ? "Loading…" : "Apply Filters"}
         </button>
       </div>
 
       {/* CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Members" value="1,240" icon={<Users />} sub="+12%" />
-        <StatCard title="Pending Applications" value="32" icon={<UserPlus />} />
-        <StatCard title="Renewals Due" value="18" icon={<Clock />} sub="-5%" />
-        <StatCard title="Membership Revenue" value="45,200 RWF" icon={<Wallet />} sub="+8.4%" />
+        <StatCard
+          title="Total Members"
+          value={loading ? "…" : totalMembers.toLocaleString()}
+          icon={<Users />}
+        />
+        <StatCard
+          title="Pending Applications"
+          value={loading ? "…" : String(pendingApplications)}
+          icon={<UserPlus />}
+        />
+        <StatCard
+          title="Renewals Due"
+          value={loading ? "…" : String(renewalsDue)}
+          icon={<Clock />}
+        />
+        <StatCard
+          title="Membership Revenue"
+          value={loading ? "…" : formatRwf(membershipRevenue.total)}
+          icon={<Wallet />}
+          sub={revenueSub}
+          subVariant={membershipRevenue.changePct != null && membershipRevenue.changePct < 0 ? "down" : "up"}
+        />
       </div>
 
       {/* TOP CHART */}
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
-
-        {/* LINE */}
         <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
           <h3 className="font-semibold mb-1">Revenue Growth</h3>
-          <p className="text-xs text-gray-400 mb-4">
-            Monthly breakdown of membership fee collection.
-          </p>
+          <p className="text-xs text-gray-400 mb-4">Monthly breakdown of membership fee collection (paid invoices).</p>
 
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={revenueData}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#9ca3af" }} />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                width={36}
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                ticks={[0.1, 1, 10, 20, 30]}
-                domain={[0, 30]}
-                tickFormatter={(v) => {
-                  if (v === 0.1) return "100 K";
-                  if (v === 1) return "1 M";
-                  return `${v}M`;
-                }}
-              />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#0F2A44"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#0F2A44", stroke: "#ffffff", strokeWidth: 1 }}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {lineChartData.length === 0 && !loading ? (
+            <p className="text-sm text-gray-500 py-16 text-center">No paid revenue in this date range.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={lineChartData}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  width={44}
+                  tick={{ fontSize: 11, fill: "#9ca3af" }}
+                  domain={[0, revenueMax]}
+                  tickFormatter={(v) => formatShortNumber(Number(v))}
+                />
+                <Tooltip
+                  formatter={(value) =>
+                    typeof value === "number" ? [`${value.toLocaleString()} RWF`, "Revenue"] : ["", ""]
+                  }
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#0F2A44"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "#0F2A44", stroke: "#ffffff", strokeWidth: 1 }}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* CATEGORY */}
-        <MembersByCategoryCard data={categoryData} />
+        <MembersByCategoryCard data={categoryData} loading={loading} emptyHint="No tier breakdown for this filter." />
       </div>
-
 
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
-        <PieDetailed title="Members by Cluster" data={clusterData} />
-        <PieSimple title="Members by Type" data={typeData} />
+        <PieDetailed
+          title="Members by Cluster"
+          data={clusterData}
+          loading={loading}
+          emptyHint="No members match this filter."
+        />
+        <PlaceholderTypeCard />
       </div>
-
     </div>
   );
 }
@@ -296,19 +494,13 @@ export default function Reports() {
 
 function Btn({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <button className="flex items-center gap-1.5 border border-gray-200 px-3 py-2 rounded-md text-xs bg-white whitespace-nowrap">
+    <button
+      type="button"
+      className="flex items-center gap-1.5 border border-gray-200 px-3 py-2 rounded-md text-xs bg-white whitespace-nowrap"
+    >
       {icon}
       {label}
     </button>
-  );
-}
-
-function FilterBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col text-sm w-full lg:w-auto">
-      <span className="text-gray-400 text-xs">{label}</span>
-      <div className="border px-3 py-2 rounded-md truncate">{value}</div>
-    </div>
   );
 }
 
@@ -375,38 +567,56 @@ function StatCard({
   value,
   icon,
   sub,
+  subVariant = "up",
 }: {
   title: string;
   value: string;
   icon: React.ReactNode;
   sub?: string;
+  subVariant?: "up" | "down";
 }) {
+  const subClass =
+    subVariant === "down" ? "text-xs text-red-600" : "text-xs text-green-600";
   return (
     <div className="bg-white p-5 rounded-md border flex justify-between items-start">
       <div>
         <p className="text-sm text-gray-500">{title}</p>
         <h3 className="text-2xl font-bold">{value}</h3>
-        {sub && <p className="text-xs text-green-500">{sub}</p>}
+        {sub && <p className={subClass}>{sub}</p>}
       </div>
 
-      <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">
-        {icon}
-      </div>
+      <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center">{icon}</div>
     </div>
   );
 }
 
-/* ===== CLUSTER (WITH %) ===== */
-function PieDetailed({ title, data }: { title: string; data: PieItem[] }) {
+function PieDetailed({
+  title,
+  data,
+  loading,
+  emptyHint,
+}: {
+  title: string;
+  data: PieItem[];
+  loading?: boolean;
+  emptyHint?: string;
+}) {
+  if (!loading && data.length === 0) {
+    return (
+      <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
+        <h3 className="font-semibold">{title}</h3>
+        <p className="text-xs text-gray-400 mb-4">Distribution by cluster</p>
+        <p className="text-sm text-gray-500 py-12 text-center">{emptyHint}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
-
       <h3 className="font-semibold">{title}</h3>
       <p className="text-xs text-gray-400 mb-4">Distribution by cluster</p>
 
       <div className="flex flex-col lg:flex-row items-center gap-4 min-w-0">
-
-        {/* CHART */}
         <div className="w-full lg:w-[42%]">
           <ResponsiveContainer width="100%" height={210}>
             <PieChart>
@@ -419,14 +629,12 @@ function PieDetailed({ title, data }: { title: string; data: PieItem[] }) {
           </ResponsiveContainer>
         </div>
 
-        {/* LEGEND */}
         <div className="w-full lg:w-[58%] space-y-3 text-sm min-w-0">
           {data.map((item, i) => (
-            <div key={i} className="flex justify-between items-start gap-2">
-
+            <div key={`${item.name}-${i}`} className="flex justify-between items-start gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span
-                  className="w-3 h-3 rounded-full"
+                  className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: COLORS[i % COLORS.length] }}
                 />
                 <span className="text-gray-700 break-words whitespace-normal leading-snug">{item.name}</span>
@@ -436,21 +644,37 @@ function PieDetailed({ title, data }: { title: string; data: PieItem[] }) {
                 <span className="font-medium text-gray-700">{item.value}</span>
                 <span className="text-gray-400 w-10 text-right">{item.percent}</span>
               </div>
-
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );
 }
 
-function MembersByCategoryCard({ data }: { data: PieItem[] }) {
+function MembersByCategoryCard({
+  data,
+  loading,
+  emptyHint,
+}: {
+  data: PieItem[];
+  loading?: boolean;
+  emptyHint?: string;
+}) {
+  if (!loading && data.length === 0) {
+    return (
+      <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
+        <h3 className="font-semibold">Members by Category</h3>
+        <p className="text-xs text-gray-400 mb-3">Current distribution of active members by tier.</p>
+        <p className="text-sm text-gray-500 py-12 text-center">{emptyHint}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
       <h3 className="font-semibold">Members by Category</h3>
-      <p className="text-xs text-gray-400 mb-3">Current distribution of active members.</p>
+      <p className="text-xs text-gray-400 mb-3">Current distribution of active members by tier.</p>
 
       <ResponsiveContainer width="100%" height={170}>
         <PieChart>
@@ -467,7 +691,7 @@ function MembersByCategoryCard({ data }: { data: PieItem[] }) {
           <div key={item.name} className="flex items-start justify-between gap-2">
             <span className="inline-flex items-center gap-2 text-gray-700 min-w-0 flex-1">
               <span
-                className="w-2.5 h-2.5 rounded-full"
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: COLORS[i % COLORS.length] }}
               />
               <span className="break-words whitespace-normal leading-snug">{item.name}</span>
@@ -480,51 +704,15 @@ function MembersByCategoryCard({ data }: { data: PieItem[] }) {
   );
 }
 
-/* ===== TYPE (NO %) ===== */
-function PieSimple({ title, data }: { title: string; data: PieItem[] }) {
+function PlaceholderTypeCard() {
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
-
-      <h3 className="font-semibold">{title}</h3>
-      <p className="text-xs text-gray-400 mb-4">
-        Current distribution of active members.
+    <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200 border-dashed">
+      <h3 className="font-semibold">Members by Type</h3>
+      <p className="text-xs text-gray-400 mb-3">Organization type (e.g. commercial vs program partner).</p>
+      <p className="text-sm text-gray-600 leading-relaxed">
+        This breakdown is not available from the API yet. When the backend exposes member organization
+        categories, this chart can be connected the same way as clusters and tiers.
       </p>
-
-      <div className="flex flex-col items-center gap-3 min-w-0">
-
-        {/* CHART */}
-        <div className="w-full">
-          <ResponsiveContainer width="100%" height={170}>
-            <PieChart>
-              <Pie data={data} innerRadius={38} outerRadius={62} dataKey="value">
-                {data.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* LEGEND */}
-        <div className="w-full space-y-2.5 text-sm min-w-0">
-          {data.map((item, i) => (
-            <div key={i} className="flex justify-between items-start gap-2">
-
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                />
-                <span className="text-gray-700 break-words whitespace-normal leading-snug">{item.name}</span>
-              </div>
-
-              <span className="text-gray-700 font-medium flex-shrink-0">{item.value}</span>
-
-            </div>
-          ))}
-        </div>
-
-      </div>
     </div>
   );
 }
