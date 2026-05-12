@@ -457,8 +457,8 @@ export default function Reports() {
                   tickFormatter={(v) => formatShortNumber(Number(v))}
                 />
                 <Tooltip
-                  formatter={(value: number | undefined) =>
-                    value != null ? [`${value.toLocaleString()} RWF`, "Revenue"] : ["", ""]
+                  formatter={(value) =>
+                    typeof value === "number" ? [`${value.toLocaleString()} RWF`, "Revenue"] : ["", ""]
                   }
                 />
                 <Line
