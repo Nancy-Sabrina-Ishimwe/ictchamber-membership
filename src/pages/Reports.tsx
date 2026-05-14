@@ -48,6 +48,7 @@ type PieItem = {
   value: number;
   percent?: string;
 };
+type CsvRow = Record<string, string | number>;
 
 const COLORS = [
   "#0F2A44",
@@ -93,6 +94,47 @@ function formatPercentChange(pct: number | null): string | undefined {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
+function csvEscape(value: string | number): string {
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function downloadCsv(filename: string, rows: CsvRow[]): void {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(",")];
+  for (const row of rows) {
+    lines.push(headers.map((h) => csvEscape(row[h] ?? "")).join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableWindow(title: string, contentHtml: string): void {
+  const w = window.open("", "_blank", "noopener,noreferrer,width=980,height=700");
+  if (!w) return;
+  w.document.write(`
+    <html>
+      <head><title>${title}</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 24px; color: #111827;">
+        <h1 style="margin: 0 0 16px 0;">${title}</h1>
+        ${contentHtml}
+      </body>
+    </html>
+  `);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
 type TierOption = { id: number; name: string };
 
 /* ================= PAGE ================= */
@@ -130,6 +172,7 @@ export default function Reports() {
   const [revenueSeries, setRevenueSeries] = useState<RevenueGrowthPoint[]>([]);
   const [clusterPie, setClusterPie] = useState<MembersByClusterItem[]>([]);
   const [tierPie, setTierPie] = useState<MembersByTierItem[]>([]);
+  const [memberTypeData, setMemberTypeData] = useState<PieItem[]>([]);
 
   const reportFilters = useMemo((): ReportsFilterParams => {
     return {
@@ -171,6 +214,7 @@ export default function Reports() {
     try {
       const [
         membersCount,
+        allMembersCount,
         pending,
         revenue,
         growth,
@@ -179,6 +223,10 @@ export default function Reports() {
         renewals,
       ] = await Promise.all([
         getReportsTotalMembers(reportFilters),
+        getReportsTotalMembers({
+          ...reportFilters,
+          active: undefined,
+        }),
         getReportsPendingApplicationsSummary(),
         getReportsMembershipRevenue(reportFilters),
         getReportsRevenueGrowth({
@@ -199,6 +247,20 @@ export default function Reports() {
       setClusterPie(byCluster);
       setTierPie(byTier);
       setRenewalsDue(renewals.length);
+      const inactiveCount = Math.max(allMembersCount - membersCount, 0);
+      const denom = membersCount + inactiveCount;
+      setMemberTypeData([
+        {
+          name: "Active",
+          value: membersCount,
+          percent: denom === 0 ? "0.0%" : `${((membersCount / denom) * 100).toFixed(1)}%`,
+        },
+        {
+          name: "Inactive",
+          value: inactiveCount,
+          percent: denom === 0 ? "0.0%" : `${((inactiveCount / denom) * 100).toFixed(1)}%`,
+        },
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load reports.");
     } finally {
@@ -264,6 +326,32 @@ export default function Reports() {
   );
 
   const revenueSub = formatPercentChange(membershipRevenue.changePct);
+  const runDate = new Date().toISOString().slice(0, 10);
+
+  const handleExportExcel = () => {
+    const rows: CsvRow[] = [
+      { section: "KPI", metric: "Total Members", value: totalMembers },
+      { section: "KPI", metric: "Pending Applications", value: pendingApplications },
+      { section: "KPI", metric: "Renewals Due", value: renewalsDue },
+      { section: "KPI", metric: "Membership Revenue (RWF)", value: membershipRevenue.total },
+      ...lineChartData.map((r) => ({ section: "Revenue Growth", month: r.month, value: r.value })),
+      ...categoryData.map((r) => ({ section: "Members by Category", name: r.name, value: r.value, percent: r.percent ?? "" })),
+      ...clusterData.map((r) => ({ section: "Members by Cluster", name: r.name, value: r.value, percent: r.percent ?? "" })),
+      ...memberTypeData.map((r) => ({ section: "Members by Type", name: r.name, value: r.value, percent: r.percent ?? "" })),
+    ];
+    downloadCsv(`membership-reports-${runDate}.csv`, rows);
+  };
+
+  const handleExportPdf = () => {
+    const content = `
+      <p><strong>Date filter:</strong> ${appliedDateFrom} to ${appliedDateTo}</p>
+      <p><strong>Total Members:</strong> ${totalMembers}</p>
+      <p><strong>Pending Applications:</strong> ${pendingApplications}</p>
+      <p><strong>Renewals Due:</strong> ${renewalsDue}</p>
+      <p><strong>Membership Revenue:</strong> ${membershipRevenue.total.toLocaleString()} RWF</p>
+    `;
+    openPrintableWindow("Membership Reports", content);
+  };
 
   return (
     <div className="space-y-6 overflow-x-hidden">
@@ -292,9 +380,9 @@ export default function Reports() {
         </div>
 
         <div className="flex flex-wrap gap-2 min-w-0">
-          <Btn icon={<FileDown size={14} />} label="Export Excel" />
-          <Btn icon={<Download size={14} />} label="Export PDF" />
-          <Btn icon={<Printer size={14} />} label="Print" />
+          <Btn icon={<FileDown size={14} />} label="Export Excel" onClick={handleExportExcel} />
+          <Btn icon={<Download size={14} />} label="Export PDF" onClick={handleExportPdf} />
+          <Btn icon={<Printer size={14} />} label="Print" onClick={() => window.print()} />
         </div>
       </div>
 
@@ -484,7 +572,7 @@ export default function Reports() {
           loading={loading}
           emptyHint="No members match this filter."
         />
-        <PlaceholderTypeCard />
+        <MembersByTypeCard data={memberTypeData} loading={loading} />
       </div>
     </div>
   );
@@ -492,10 +580,11 @@ export default function Reports() {
 
 /* ================= COMPONENTS ================= */
 
-function Btn({ icon, label }: { icon: React.ReactNode; label: string }) {
+function Btn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="flex items-center gap-1.5 border border-gray-200 px-3 py-2 rounded-md text-xs bg-white whitespace-nowrap"
     >
       {icon}
@@ -704,15 +793,31 @@ function MembersByCategoryCard({
   );
 }
 
-function PlaceholderTypeCard() {
+function MembersByTypeCard({ data, loading }: { data: PieItem[]; loading?: boolean }) {
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200 border-dashed">
+    <div className="bg-white p-4 sm:p-5 rounded-md border border-gray-200">
       <h3 className="font-semibold">Members by Type</h3>
-      <p className="text-xs text-gray-400 mb-3">Organization type (e.g. commercial vs program partner).</p>
-      <p className="text-sm text-gray-600 leading-relaxed">
-        This breakdown is not available from the API yet. When the backend exposes member organization
-        categories, this chart can be connected the same way as clusters and tiers.
-      </p>
+      <p className="text-xs text-gray-400 mb-3">Current status mix of member accounts.</p>
+      {loading ? (
+        <p className="text-sm text-gray-500 py-12 text-center">Loading...</p>
+      ) : (
+        <div className="space-y-2">
+          {data.map((item, i) => (
+            <div key={`${item.name}-${i}`} className="flex items-center justify-between text-sm">
+              <span className="inline-flex items-center gap-2 text-gray-700">
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                />
+                {item.name}
+              </span>
+              <span className="text-gray-700 font-medium">
+                {item.value} ({item.percent})
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

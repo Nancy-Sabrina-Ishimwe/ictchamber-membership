@@ -29,6 +29,8 @@ import {
   type ServiceUsageSummary,
 } from "./serviceUsageReportsApi";
 
+type CsvRow = Record<string, string | number>;
+
 function defaultDateInputs(): { from: string; to: string } {
   const to = new Date();
   const from = new Date(to);
@@ -61,6 +63,47 @@ function formatAvgDays(n: number | null): string {
 function formatSatisfaction(p: number | null): string {
   if (p === null) return "—";
   return `${p}%`;
+}
+
+function csvEscape(value: string | number): string {
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function downloadCsv(filename: string, rows: CsvRow[]): void {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(",")];
+  for (const row of rows) {
+    lines.push(headers.map((h) => csvEscape(row[h] ?? "")).join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableWindow(title: string, contentHtml: string): void {
+  const w = window.open("", "_blank", "noopener,noreferrer,width=980,height=700");
+  if (!w) return;
+  w.document.write(`
+    <html>
+      <head><title>${title}</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 24px; color: #111827;">
+        <h1 style="margin: 0 0 16px 0;">${title}</h1>
+        ${contentHtml}
+      </body>
+    </html>
+  `);
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 export default function ServiceUsage() {
@@ -179,6 +222,38 @@ export default function ServiceUsage() {
     summary?.topService != null
       ? `${summary.topService.shareOfTotalPercent.toFixed(0)}% of requests in range`
       : "Most requested service category";
+  const runDate = new Date().toISOString().slice(0, 10);
+
+  const handleExportExcel = () => {
+    const rows: CsvRow[] = [
+      { section: "KPI", metric: "Total Requests", value: summary?.totalRequests ?? 0 },
+      { section: "KPI", metric: "Delivered Services", value: summary?.totalDelivered ?? 0 },
+      { section: "KPI", metric: "Pending Requests", value: summary?.totalPending ?? 0 },
+      { section: "KPI", metric: "Avg Delivery Days", value: summary?.avgDeliveryDaysAll ?? "--" },
+      { section: "KPI", metric: "Top Service", value: summary?.topService?.categoryName ?? "--" },
+      ...tableRows.map((r) => ({
+        section: "Performance",
+        serviceType: r.serviceType,
+        total: r.totalRequests,
+        completed: r.completed,
+        pending: r.pending,
+        avgDeliveryDays: r.avgDeliveryDays ?? "--",
+        satisfactionPercent: r.satisfactionPercent ?? "--",
+      })),
+    ];
+    downloadCsv(`service-usage-report-${runDate}.csv`, rows);
+  };
+
+  const handleExportPdf = () => {
+    const content = `
+      <p><strong>Date filter:</strong> ${dateFrom} to ${dateTo}</p>
+      <p><strong>Total Requests:</strong> ${summary?.totalRequests ?? 0}</p>
+      <p><strong>Delivered Services:</strong> ${summary?.totalDelivered ?? 0}</p>
+      <p><strong>Pending Requests:</strong> ${summary?.totalPending ?? 0}</p>
+      <p><strong>Top Service:</strong> ${summary?.topService?.categoryName ?? "--"}</p>
+    `;
+    openPrintableWindow("Service Usage Report", content);
+  };
 
   return (
     <div className="w-full max-w-full space-y-5 overflow-x-hidden">
@@ -207,9 +282,9 @@ export default function ServiceUsage() {
         </div>
 
         <div className="flex flex-wrap gap-2 min-w-0 w-full sm:w-auto">
-          <Btn icon={<FileDown size={14} />} label="Export Excel" />
-          <Btn icon={<Download size={14} />} label="Export PDF" />
-          <Btn icon={<Printer size={14} />} label="Print" />
+          <Btn icon={<FileDown size={14} />} label="Export Excel" onClick={handleExportExcel} />
+          <Btn icon={<Download size={14} />} label="Export PDF" onClick={handleExportPdf} />
+          <Btn icon={<Printer size={14} />} label="Print" onClick={() => window.print()} />
         </div>
       </div>
 
@@ -386,10 +461,11 @@ export default function ServiceUsage() {
   );
 }
 
-function Btn({ icon, label }: { icon: React.ReactNode; label: string }) {
+function Btn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="flex items-center gap-1.5 border border-gray-200 px-3 py-2 rounded-md text-xs bg-white hover:bg-gray-50 transition-colors whitespace-nowrap"
     >
       {icon}
