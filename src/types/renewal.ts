@@ -1,5 +1,6 @@
 export interface Renewal {
   id: string;
+  memberId?: number;
   companyName: string;
   tier: string;
   category: string;
@@ -8,4 +9,5 @@ export interface Renewal {
   lastNotification?: string;
   channel?: string; // Email | SMS
   status: "urgent" | "sent" | "pending";
+  projectedRevenue?: number;
 }

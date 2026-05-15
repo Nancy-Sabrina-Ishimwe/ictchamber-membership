@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { APP_LOGO_SRC, ROUTES } from '../constants/app';
 
 const NAVBAR_LOGO_CLASS = 'h-10 w-10 rounded-sm object-contain';
+const MOBILE_LOGIN_LOGO_SRC = 'https://res.cloudinary.com/dc6iwekzx/image/upload/v1778836285/logo_1945919583_1_lwuwo3.png';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ export default function LoginPage() {
 
         {/* Mobile logo */}
         <div className="mb-4 flex shrink-0 items-center gap-3 lg:hidden">
-          <img src={APP_LOGO_SRC} alt="ICT Chamber" className={NAVBAR_LOGO_CLASS} />
+          <img src={MOBILE_LOGIN_LOGO_SRC} alt="ICT Chamber" className="h-10 w-auto object-contain" />
           <div>
             <p className="text-sm font-bold leading-tight text-gray-900">Rwanda ICT Chamber</p>
             <p className="text-xs font-semibold leading-tight text-[#EF9F27]">Membership Portal</p>
@@ -232,13 +233,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          {/* Demo hint */}
-          <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2.5 sm:px-4">
-            <p className="text-[10px] font-semibold text-gray-500 sm:text-[11px]">Demo credentials</p>
-            <p className="mt-1 text-[10px] text-gray-400 sm:text-[11px]">
-              Use the seeded superadmin account or any member account activated via the registration flow.
-            </p>
-          </div>
         </div>
       </div>
     </div>
