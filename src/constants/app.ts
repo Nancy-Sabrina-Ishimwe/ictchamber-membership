@@ -22,6 +22,7 @@ export const ROUTES = {
   ADMIN_PARTNERS_DIRECTORY: '/admin/partners/directory',
   ADMIN_RENEWALS: '/admin/renewals',
   ADMIN_SERVICES: '/admin/services',
+  ADMIN_SERVICES_REQUESTS: '/admin/services/requests',
   ADMIN_SERVICES_DELIVERED: '/admin/services/delivered',
   ADMIN_EVENTS: '/admin/events',
   ADMIN_REPORTS: '/admin/reports',
@@ -40,4 +41,5 @@ export const ROUTES = {
   MEMBER_BENEFITS: '/member/benefits',
   MEMBER_PAYMENTS: '/member/payments',
   MEMBER_CATALOG: '/member/membership-catalog',
+  SERVICE_FEEDBACK: (id: string | number) => `/service-requests/${id}/feedback`,
 } as const;

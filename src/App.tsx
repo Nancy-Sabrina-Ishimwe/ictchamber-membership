@@ -6,6 +6,7 @@ import MainLayout from './layouts/MainLayout';
 import ServiceUsage from './services/ServiceUsage';
 import { usePortalStore } from './store/portalStore';
 import Dashboard from './pages/Dashboard';
+import AllServiceRequestsPage from './pages/AllServiceRequestsPage';
 import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
 import GeneralSettings from './pages/GeneralSettings';
@@ -30,6 +31,7 @@ import { DashboardPage } from './pages/membership/portal/DashboardPage';
 import { PaymentsPage } from './pages/membership/portal/PaymentsPage';
 import { ProfilePage } from './pages/membership/portal/ProfilePage';
 import { RequestsPage } from './pages/membership/portal/RequestsPage';
+import { ServiceFeedbackPage } from './pages/membership/ServiceFeedbackPage';
 import { ROUTES } from './constants/app';
 
 const GlobalModals: React.FC = () => {
@@ -165,6 +167,16 @@ function App() {
             <AdminRoute>
               <AdminShell>
                 <Services />
+              </AdminShell>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path={ROUTES.ADMIN_SERVICES_REQUESTS}
+          element={
+            <AdminRoute>
+              <AdminShell>
+                <AllServiceRequestsPage />
               </AdminShell>
             </AdminRoute>
           }
@@ -324,6 +336,14 @@ function App() {
           }
         />
         <Route path={ROUTES.MEMBER_CATALOG} element={<MembershipCatalogPage />} />
+        <Route
+          path="/service-requests/:id/feedback"
+          element={
+            <MemberRoute>
+              <ServiceFeedbackPage />
+            </MemberRoute>
+          }
+        />
 
         {/* ── Legacy member short-paths ── */}
         <Route path="/register"           element={<Navigate to={ROUTES.MEMBER_REGISTER}   replace />} />
@@ -335,7 +355,7 @@ function App() {
         <Route path="/membership-catalog" element={<Navigate to={ROUTES.MEMBER_CATALOG}    replace />} />
         <Route path="/catalog"            element={<Navigate to={ROUTES.MEMBER_CATALOG}    replace />} />
 
-        {/* ── Catch-all: send unauthenticated users to login ── */}
+        {/* ── Catch-all: send unauthenticated users to login (after explicit routes) ── */}
         <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
     </>
