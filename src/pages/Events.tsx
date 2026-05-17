@@ -42,6 +42,7 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchEvents = async () => {
     try {
@@ -93,7 +94,11 @@ export default function Events() {
   const saveEvent = async (payload: EventFormValue) => {
     try {
       setError(null);
-      await api.post("/events", {
+      setSuccessMessage(null);
+      const response = await api.post<{
+        message?: string;
+        invitations?: { sentCount?: number; failedCount?: number };
+      }>("/events", {
         title: payload.title,
         eventDate: payload.date,
         eventTime: payload.time,
@@ -101,6 +106,14 @@ export default function Events() {
         notes: payload.notes,
         companies: payload.companies,
       });
+      const apiMessage = response.data.message?.trim();
+      if (apiMessage) {
+        setSuccessMessage(apiMessage);
+      } else if ((response.data.invitations?.sentCount ?? 0) > 0) {
+        setSuccessMessage("Event created and invitation emails were sent.");
+      } else {
+        setSuccessMessage("Event created successfully.");
+      }
       await fetchEvents();
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Failed to create event.";
@@ -278,6 +291,11 @@ export default function Events() {
       {/* TITLE */}
       <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent & Upcoming Events</h3>
       {isLoading ? <p className="text-sm text-gray-500">Loading events...</p> : null}
+      {successMessage ? (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+          {successMessage}
+        </p>
+      ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       {/* GRID / EMPTY */}
