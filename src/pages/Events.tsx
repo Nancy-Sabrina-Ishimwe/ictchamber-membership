@@ -1,5 +1,17 @@
-import { Search, Plus, Calendar, Clock3, MapPin, Building2, CheckCircle2, FileText } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  FileText,
+  Building2,
+  Layers,
+  MapPin,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import EventModal, { type EventFormValue } from "../components/EventModal";
 import { api } from "../lib/api";
@@ -14,11 +26,18 @@ type Event = {
   companies: string[];
   notes?: string;
   status: "Completed" | "Upcoming";
+  eventTimestamp: number | null;
 };
+
+type StatusFilter = "all" | Event["status"];
 
 export default function Events() {
   const [openModal, setOpenModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,18 +60,23 @@ export default function Events() {
         }>;
       }>("/events");
 
-      const mapped: Event[] = (response.data.data ?? []).map((item) => ({
-        id: String(item.id),
-        title: item.title,
-        date: item.eventDate,
-        time: item.eventTime,
-        location: item.location ?? "Virtual Event",
-        companies: Array.isArray(item.companies)
-          ? item.companies.filter((company): company is string => typeof company === "string")
-          : [],
-        notes: item.notes ?? "",
-        status: item.status === "COMPLETED" ? "Completed" : "Upcoming",
-      }));
+      const mapped: Event[] = (response.data.data ?? []).map((item) => {
+        const parsedDate = new Date(item.eventDate);
+        const eventTimestamp = Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getTime();
+        return {
+          id: String(item.id),
+          title: item.title,
+          date: item.eventDate,
+          time: item.eventTime,
+          location: item.location?.trim() ? item.location.trim() : "Virtual Event",
+          companies: Array.isArray(item.companies)
+            ? item.companies.filter((company): company is string => typeof company === "string")
+            : [],
+          notes: item.notes ?? "",
+          status: item.status === "COMPLETED" ? "Completed" : "Upcoming",
+          eventTimestamp,
+        };
+      });
       setEvents(mapped);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Failed to load events.");
@@ -85,11 +109,31 @@ export default function Events() {
     }
   };
 
+  const locationOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const event of events) {
+      if (event.location) set.add(event.location);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [events]);
+
+  const rangeStartMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+  const rangeEndMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+
   const filteredEvents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return events;
-    return events.filter((event) =>
-      [
+    return events.filter((event) => {
+      if (statusFilter !== "all" && event.status !== statusFilter) return false;
+      if (locationFilter !== "all" && event.location !== locationFilter) return false;
+
+      if (rangeStartMs !== null || rangeEndMs !== null) {
+        if (event.eventTimestamp === null) return false;
+        if (rangeStartMs !== null && event.eventTimestamp < rangeStartMs) return false;
+        if (rangeEndMs !== null && event.eventTimestamp > rangeEndMs) return false;
+      }
+
+      if (!query) return true;
+      return [
         event.title,
         event.location,
         formatDateLabel(event.date),
@@ -100,25 +144,35 @@ export default function Events() {
       ]
         .join(" ")
         .toLowerCase()
-        .includes(query),
-    );
-  }, [events, searchQuery]);
+        .includes(query);
+    });
+  }, [events, searchQuery, statusFilter, locationFilter, rangeStartMs, rangeEndMs]);
+
+  const filterBarActive =
+    searchQuery.trim() !== "" ||
+    statusFilter !== "all" ||
+    locationFilter !== "all" ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setLocationFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
 
-      {/* SEARCH + BUTTON */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center bg-white p-3 sm:p-4 rounded-md shadow-sm border border-gray-200">
-        <div className="flex items-center border border-gray-200 rounded-md px-3 py-2 w-full sm:max-w-[430px]">
-          <Search size={15} className="text-gray-400 flex-shrink-0" />
-          <input
-            placeholder="Search events"
-            className="ml-2 outline-none text-sm w-full bg-transparent"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Events</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Schedule and review chamber events with participating companies.
+          </p>
         </div>
-
         <button
           type="button"
           onClick={() => setOpenModal(true)}
@@ -127,6 +181,98 @@ export default function Events() {
           <Plus size={15} />
           Add Event
         </button>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4 space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Layers size={17} className="text-gray-400 flex-shrink-0" aria-hidden />
+            <span>Filter events</span>
+            {filterBarActive ? (
+              <span className="text-xs font-normal text-gray-500">
+                ({filteredEvents.length} of {events.length})
+              </span>
+            ) : null}
+          </div>
+          {filterBarActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center justify-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors py-1.5 px-2 rounded-md hover:bg-gray-50"
+            >
+              <X size={15} className="text-gray-400" aria-hidden />
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2">
+          <Search size={16} className="text-gray-400 flex-shrink-0" aria-hidden />
+          <input
+            type="search"
+            placeholder="Search title, location, company, notes..."
+            className="outline-none text-sm w-full min-w-0 bg-transparent placeholder:text-gray-400"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            aria-label="Search events"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value as StatusFilter)}
+            placeholder="All statuses"
+          >
+            <option value="Upcoming">Upcoming</option>
+            <option value="Completed">Completed</option>
+          </FilterSelect>
+
+          <FilterSelect
+            label="Location"
+            value={locationFilter}
+            onChange={setLocationFilter}
+            placeholder="All locations"
+            icon={<MapPin size={14} className="text-gray-400" />}
+          >
+            {locationOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </FilterSelect>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-medium text-gray-500">Event from</span>
+            <label className="relative flex items-center rounded-md border border-gray-200 bg-white">
+              <Calendar size={14} className="absolute left-2.5 text-gray-400 pointer-events-none" aria-hidden />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                max={dateTo || undefined}
+                className="w-full rounded-md bg-transparent py-2 pl-8 pr-2 text-sm outline-none focus:ring-1 focus:ring-yellow-400/80 focus:border-yellow-400"
+                aria-label="Event date from"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-medium text-gray-500">Event to</span>
+            <label className="relative flex items-center rounded-md border border-gray-200 bg-white">
+              <Calendar size={14} className="absolute left-2.5 text-gray-400 pointer-events-none" aria-hidden />
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                min={dateFrom || undefined}
+                className="w-full rounded-md bg-transparent py-2 pl-8 pr-2 text-sm outline-none focus:ring-1 focus:ring-yellow-400/80 focus:border-yellow-400"
+                aria-label="Event date to"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* TITLE */}
@@ -146,7 +292,11 @@ export default function Events() {
         </div>
       ) : !isLoading && !error && filteredEvents.length === 0 && events.length > 0 ? (
         <div className="rounded-md border border-gray-200 bg-white px-4 py-10 text-center text-sm text-gray-600">
-          No events match “{searchQuery.trim()}”. Try a different search or clear the filter.
+          No events match your filters. Adjust filters or{" "}
+          <button type="button" onClick={clearFilters} className="font-medium text-[#0F2A56] hover:underline">
+            clear filters
+          </button>
+          .
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
@@ -299,4 +449,48 @@ function formatDateLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  placeholder,
+  icon,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  const id = label.replace(/\s+/g, "-").toLowerCase();
+  return (
+    <div className="space-y-1.5 min-w-0">
+      <label htmlFor={id} className="block text-xs font-medium text-gray-500">
+        {label}
+      </label>
+      <div className="relative">
+        {icon ? (
+          <span className="absolute left-2.5 top-1/2 z-[1] -translate-y-1/2 pointer-events-none">{icon}</span>
+        ) : null}
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={`w-full appearance-none rounded-md border border-gray-200 bg-white py-2 pr-9 text-sm text-gray-900 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/80 ${icon ? "pl-8" : "pl-2.5"}`}
+        >
+          <option value="all">{placeholder}</option>
+          {children}
+        </select>
+        <ChevronDown
+          size={15}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
 }
