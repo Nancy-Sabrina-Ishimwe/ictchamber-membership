@@ -5,7 +5,7 @@ import type { AuthUser, UserRole } from '../context/AuthContext';
 interface BackendUser {
   id: number;
   email: string;
-  role: 'ADMIN' | 'MEMBER';
+  role: 'ADMIN' | 'MEMBER' | 'STANDARD_USER';
   companyName: string;
   address?: string;
   logoUrl?: string;
@@ -40,8 +40,10 @@ interface MeResponse {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function mapRole(role: 'ADMIN' | 'MEMBER'): UserRole {
-  return role === 'ADMIN' ? 'admin' : 'member';
+function mapRole(role: BackendUser['role']): UserRole {
+  if (role === 'ADMIN') return 'admin';
+  if (role === 'STANDARD_USER') return 'standard_user';
+  return 'member';
 }
 
 export function backendUserToAuthUser(user: BackendUser): AuthUser {

@@ -14,7 +14,7 @@ type Props = {
 export default function MainLayout({ children }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, canWrite } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const sidebarWidthClass = 'w-64';
 
@@ -80,13 +80,25 @@ export default function MainLayout({ children }: Props) {
     </div>
   );
 
+  const roleLabel =
+    user?.role === 'standard_user' ? 'Standard User' : user?.role === 'admin' ? 'Admin' : 'User';
+
   return (
     <div
-      className={`flex h-screen ${location.pathname.startsWith('/admin') ? 'bg-[#F5F7FA]' : 'bg-white'}`}
+      className={`flex h-screen flex-col ${location.pathname.startsWith('/admin') ? 'bg-[#F5F7FA]' : 'bg-white'}`}
     >
+      {!canWrite && (
+        <div
+          role="status"
+          className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900"
+        >
+          View-only mode — you can browse the admin panel but cannot create or change data.
+        </div>
+      )}
 
+      <div className="flex min-h-0 flex-1">
       {/* Desktop sidebar */}
-      <aside className={`hidden lg:flex h-screen ${sidebarWidthClass} flex-shrink-0 flex-col bg-black text-white`}>
+      <aside className={`hidden lg:flex h-full ${sidebarWidthClass} flex-shrink-0 flex-col bg-black text-white`}>
         <SidebarContent />
       </aside>
 
@@ -137,7 +149,7 @@ export default function MainLayout({ children }: Props) {
             <div className="hidden sm:flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-medium">{user?.name ?? 'Admin'}</p>
-                <p className="text-xs text-gray-300">Super Admin</p>
+                <p className="text-xs text-gray-300">{roleLabel}</p>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EF9F27] text-black font-bold text-sm">
                 {(user?.name ?? 'A')[0].toUpperCase()}
@@ -147,6 +159,7 @@ export default function MainLayout({ children }: Props) {
         </div>
 
         <div className="h-full overflow-y-auto overflow-x-hidden p-4 sm:p-6">{children}</div>
+      </div>
       </div>
     </div>
   );

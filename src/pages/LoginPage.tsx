@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { APP_LOGO_SRC, ROUTES } from '../constants/app';
+import { isStaffRole } from '../lib/permissions';
 
 const NAVBAR_LOGO_CLASS = 'h-10 w-10 rounded-sm object-contain';
 const MOBILE_LOGIN_LOGO_SRC = 'https://res.cloudinary.com/dc6iwekzx/image/upload/v1778836285/logo_1945919583_1_lwuwo3.png';
@@ -47,7 +48,7 @@ export default function LoginPage() {
     try {
       const user = await login(email, password);
       // Redirect to the page they tried to visit, or role-based default
-      const destination = from ?? (user.role === 'admin' ? ROUTES.ADMIN : ROUTES.MEMBER_DASHBOARD);
+      const destination = from ?? (isStaffRole(user.role) ? ROUTES.ADMIN : ROUTES.MEMBER_DASHBOARD);
       navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
