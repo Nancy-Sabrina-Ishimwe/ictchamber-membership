@@ -10,8 +10,9 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { ROUTES } from "../constants/app";
 
 type TrendItem = {
   month: string;
@@ -316,6 +317,12 @@ export default function DeliveredServices() {
             <h3 className="text-sm sm:text-base font-semibold text-gray-900">Requested Services</h3>
             <p className="text-xs text-gray-500 mt-1">Open service requests submitted by members.</p>
           </div>
+          <Link
+            to={ROUTES.ADMIN_SERVICES_REQUESTS}
+            className="text-sm text-gray-500 hover:text-gray-800 hover:underline shrink-0"
+          >
+            View All
+          </Link>
         </div>
 
         {isLoading && requestedServices.length === 0 ? (

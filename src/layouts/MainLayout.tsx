@@ -34,6 +34,7 @@ export default function MainLayout({ children }: Props) {
       case ROUTES.ADMIN_PARTNERS_DIRECTORY:    return 'Partners';
       case ROUTES.ADMIN_RENEWALS:              return 'Renewals';
       case ROUTES.ADMIN_SERVICES:
+      case ROUTES.ADMIN_SERVICES_REQUESTS:
       case ROUTES.ADMIN_SERVICES_DELIVERED:    return 'Services';
       case ROUTES.ADMIN_EVENTS:                return 'Events';
       case ROUTES.ADMIN_REPORTS:

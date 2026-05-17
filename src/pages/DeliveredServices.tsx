@@ -1,7 +1,22 @@
-import { Building2, CalendarDays, ChevronDown, Eye, Layers, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  ChevronDown,
+  Eye,
+  Layers,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { FeedbackRatingBadge } from "../components/feedback/FeedbackRatingBadge";
+import { ServiceFeedbackDetailModal } from "../components/feedback/ServiceFeedbackDetailModal";
 import ServiceRecordModal, { type ServiceRecordFormValue } from "../components/ServiceRecordModal";
 import { api } from "../lib/api";
+import type { ServiceFeedbackRating } from "../types/feedback";
 
 /* ================= TYPES ================= */
 
@@ -19,7 +34,13 @@ type Service = {
   subtype: string | null;
   status: "Completed" | "In Progress" | "Pending Review";
   notes?: string;
+  feedbackRating: ServiceFeedbackRating | null;
+  feedbackDescription: string | null;
+  feedbackComment: string | null;
+  feedbackSubmittedAt: string | null;
 };
+
+type FeedbackFilter = "all" | "submitted" | "pending";
 
 /* ================= PAGE ================= */
 
@@ -34,6 +55,8 @@ export default function DeliveredServices() {
   const [subtypeFilter, setSubtypeFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackFilter>("all");
+  const [viewingFeedback, setViewingFeedback] = useState<Service | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +77,10 @@ export default function DeliveredServices() {
           deliveryDate?: string | null;
           deliveredAt?: string | null;
           additionalNotes?: string | null;
+          feedbackRating?: ServiceFeedbackRating | null;
+          feedbackDescription?: string | null;
+          feedbackComment?: string | null;
+          feedbackSubmittedAt?: string | null;
         }>;
       }>("/service-requests/delivered");
 
@@ -86,6 +113,10 @@ export default function DeliveredServices() {
           subtype: subtypeName?.length ? subtypeName : null,
           status: "Completed",
           notes: item.additionalNotes ?? "",
+          feedbackRating: item.feedbackRating ?? null,
+          feedbackDescription: item.feedbackDescription ?? null,
+          feedbackComment: item.feedbackComment ?? null,
+          feedbackSubmittedAt: item.feedbackSubmittedAt ?? null,
         };
       });
       setServices(mapped);
@@ -187,9 +218,16 @@ export default function DeliveredServices() {
   const rangeStartMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
   const rangeEndMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
 
+  const feedbackSummary = useMemo(() => {
+    const submitted = services.filter((service) => service.feedbackSubmittedAt).length;
+    return { submitted, pending: services.length - submitted, total: services.length };
+  }, [services]);
+
   const filteredServices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return services.filter((service) => {
+      if (feedbackFilter === "submitted" && !service.feedbackSubmittedAt) return false;
+      if (feedbackFilter === "pending" && service.feedbackSubmittedAt) return false;
       if (companyFilter !== "all" && service.company !== companyFilter) return false;
       if (categoryFilter !== "all" && service.category !== categoryFilter) return false;
       if (subtypeFilter !== "all" && service.subtype !== subtypeFilter) return false;
@@ -221,6 +259,7 @@ export default function DeliveredServices() {
     companyFilter,
     categoryFilter,
     subtypeFilter,
+    feedbackFilter,
     rangeStartMs,
     rangeEndMs,
   ]);
@@ -230,6 +269,7 @@ export default function DeliveredServices() {
     companyFilter !== "all" ||
     categoryFilter !== "all" ||
     subtypeFilter !== "all" ||
+    feedbackFilter !== "all" ||
     dateFrom !== "" ||
     dateTo !== "";
 
@@ -238,6 +278,7 @@ export default function DeliveredServices() {
     setCompanyFilter("all");
     setCategoryFilter("all");
     setSubtypeFilter("all");
+    setFeedbackFilter("all");
     setDateFrom("");
     setDateTo("");
   };
@@ -253,7 +294,7 @@ export default function DeliveredServices() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, companyFilter, categoryFilter, subtypeFilter, dateFrom, dateTo]);
+  }, [searchQuery, companyFilter, categoryFilter, subtypeFilter, feedbackFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -280,6 +321,23 @@ export default function DeliveredServices() {
           Add Record
         </button>
       </div>
+
+      {!isLoading && services.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-gray-500">Total delivered</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{feedbackSummary.total}</p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/50 px-4 py-3 shadow-sm">
+            <p className="text-xs text-emerald-700">Feedback received</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-800">{feedbackSummary.submitted}</p>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50/50 px-4 py-3 shadow-sm">
+            <p className="text-xs text-amber-700">Awaiting feedback</p>
+            <p className="mt-1 text-2xl font-bold text-amber-800">{feedbackSummary.pending}</p>
+          </div>
+        </div>
+      ) : null}
 
       {/* FILTERS */}
       <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4 space-y-3">
@@ -317,7 +375,7 @@ export default function DeliveredServices() {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <FilterSelect
             label="Beneficiary company"
             value={companyFilter}
@@ -356,6 +414,17 @@ export default function DeliveredServices() {
                 {name}
               </option>
             ))}
+          </FilterSelect>
+
+          <FilterSelect
+            label="Member feedback"
+            value={feedbackFilter}
+            onChange={(value) => setFeedbackFilter(value as FeedbackFilter)}
+            placeholder="All feedback"
+            icon={<MessageSquareText size={14} className="text-gray-400" />}
+          >
+            <option value="submitted">Feedback received</option>
+            <option value="pending">Awaiting feedback</option>
           </FilterSelect>
 
           <div className="space-y-1.5">
@@ -427,7 +496,25 @@ export default function DeliveredServices() {
                 <CalendarDays size={14} className="text-gray-400" />
                 <span>{s.date}</span>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {s.feedbackRating ? (
+                  <FeedbackRatingBadge rating={s.feedbackRating} />
+                ) : (
+                  <span className="rounded-full border border-dashed border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-500">
+                    No feedback yet
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  className="text-[#0F2A56] hover:text-[#0a1f3f] transition-colors"
+                  aria-label={`View feedback for ${s.name}`}
+                  onClick={() => setViewingFeedback(s)}
+                  title="View member feedback"
+                >
+                  <MessageSquareText size={15} />
+                </button>
                 <button
                   type="button"
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -461,10 +548,11 @@ export default function DeliveredServices() {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              <col className="w-[33%]" />
               <col className="w-[26%]" />
-              <col className="w-[16%]" />
-              <col className="w-[15%]" />
+              <col className="w-[22%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
               <col className="w-[10%]" />
             </colgroup>
             {/* HEAD */}
@@ -473,6 +561,7 @@ export default function DeliveredServices() {
                 <th className="p-4 text-left">SERVICE NAME</th>
                 <th className="p-4 text-left">BENEFICIARY COMPANY</th>
                 <th className="p-4 text-left">DATE DELIVERED</th>
+                <th className="p-4 text-left">MEMBER FEEDBACK</th>
                 <th className="p-4 text-left">STATUS</th>
                 <th className="p-4 text-left">ACTIONS</th>
               </tr>
@@ -482,7 +571,7 @@ export default function DeliveredServices() {
             <tbody>
               {filteredServices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
                     {services.length === 0
                       ? "No delivered service records yet."
                       : "No records match your filters. Adjust filters or use Clear filters."}
@@ -516,6 +605,15 @@ export default function DeliveredServices() {
                     </span>
                   </td>
 
+                  {/* FEEDBACK */}
+                  <td className="p-4">
+                    {s.feedbackRating ? (
+                      <FeedbackRatingBadge rating={s.feedbackRating} />
+                    ) : (
+                      <span className="text-xs text-gray-400">Pending</span>
+                    )}
+                  </td>
+
                   {/* STATUS */}
                   <td className="p-4">
                     <StatusBadge status={s.status} />
@@ -524,6 +622,15 @@ export default function DeliveredServices() {
                   {/* ACTIONS */}
                   <td className="p-4">
                     <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        className="text-[#0F2A56] hover:text-[#0a1f3f] transition-colors"
+                        aria-label={`View feedback for ${s.name}`}
+                        onClick={() => setViewingFeedback(s)}
+                        title="View member feedback"
+                      >
+                        <MessageSquareText size={15} />
+                      </button>
                       <button
                         type="button"
                         className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -606,8 +713,31 @@ export default function DeliveredServices() {
           onClose={() => setEditingService(null)}
         />
       )}
+      {viewingFeedback ? (
+        <ServiceFeedbackDetailModal
+          record={toServiceFeedbackRecord(viewingFeedback)}
+          onClose={() => setViewingFeedback(null)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function toServiceFeedbackRecord(service: Service) {
+  const rawIso =
+    service.deliveryTimestamp !== null ? new Date(service.deliveryTimestamp).toISOString() : null;
+  return {
+    requestId: service.code,
+    requestTitle: service.name,
+    companyName: service.company,
+    category: service.category,
+    subtype: service.subtype,
+    deliveryDate: rawIso,
+    rating: service.feedbackRating,
+    description: service.feedbackDescription,
+    comment: service.feedbackComment,
+    submittedAt: service.feedbackSubmittedAt,
+  };
 }
 
 function FilterSelect({
