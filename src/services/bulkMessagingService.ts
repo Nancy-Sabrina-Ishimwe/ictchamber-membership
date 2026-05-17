@@ -3,10 +3,13 @@ import { api } from "../lib/api";
 export type MessagingChannel = "email" | "sms";
 export type MembershipStatusFilter = "all" | "active" | "inactive" | "pending";
 
+export type AudienceTargetMode = "all" | "cluster" | "specific";
+
 export type MessagingFilters = {
+  targetMode: AudienceTargetMode;
   clusterId?: number;
   membershipStatus: MembershipStatusFilter;
-  excludeMemberIds: number[];
+  includeMemberIds: number[];
 };
 
 export type MessagingAttachment = {
@@ -61,11 +64,15 @@ export async function getMessagingCampaigns(): Promise<MessagingCampaign[]> {
   return Array.isArray(data?.data) ? data.data : [];
 }
 
-export async function getMessagingRecipientsPreview(filters: Omit<MessagingFilters, "excludeMemberIds">) {
+export async function getMessagingRecipientsPreview(filters: MessagingFilters) {
   const search = new URLSearchParams();
+  search.set("targetMode", filters.targetMode);
   if (filters.clusterId) search.set("clusterId", String(filters.clusterId));
   if (filters.membershipStatus && filters.membershipStatus !== "all") {
     search.set("membershipStatus", filters.membershipStatus);
+  }
+  if (filters.includeMemberIds.length > 0) {
+    search.set("includeMemberIds", filters.includeMemberIds.join(","));
   }
 
   const { data } = await api.get<{ data?: { count?: number; items?: MessagingRecipient[] } }>(

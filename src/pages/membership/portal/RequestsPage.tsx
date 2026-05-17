@@ -13,7 +13,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export const RequestsPage: React.FC = () => {
-  const [services, setServices] = useState<Array<{ id: number; serviceName: string }>>([]);
+  const [services, setServices] = useState<Array<{ id: number; serviceName: string; categoryId: number }>>([]);
   const [serviceSubtypes, setServiceSubtypes] = useState<Array<{ id: number; name: string; serviceId: number }>>([]);
   const [requests, setRequests] = useState<Array<{
     id: string;
@@ -43,7 +43,6 @@ export const RequestsPage: React.FC = () => {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [form, setForm] = useState({
     serviceCategoryId: '',
-    serviceSubtypeId: '',
     requestTitle: '',
     detailedDescription: '',
     preferredContactMethod: 'Email',
@@ -117,7 +116,7 @@ export const RequestsPage: React.FC = () => {
           api.get<{
             success: boolean;
             data: {
-              services: Array<{ id: number; serviceName: string }>;
+              services: Array<{ id: number; serviceName: string; categoryId: number }>;
               subtypes: Array<{ id: number; name: string; serviceId: number }>;
             };
           }>('/service-requests/options'),
@@ -163,27 +162,36 @@ export const RequestsPage: React.FC = () => {
     void fetchData();
   }, []);
 
-  const categoryOptions = useMemo(
-    () => services.map((service) => ({ id: service.id, label: service.serviceName })),
-    [services],
-  );
-
-  const subtypeOptions = useMemo(() => {
-    const selectedCategoryId = Number(form.serviceCategoryId);
-    return serviceSubtypes
-      .filter((item) => (selectedCategoryId ? item.serviceId === selectedCategoryId : true))
-      .map((item) => ({ id: item.id, label: item.name }));
-  }, [serviceSubtypes, form.serviceCategoryId]);
+  const categoryOptions = useMemo(() => {
+    const serviceIdsWithSubtypes = new Set(serviceSubtypes.map((item) => item.serviceId));
+    return services
+      .filter((service) => serviceIdsWithSubtypes.has(service.id))
+      .map((service) => ({ id: service.id, label: service.serviceName }));
+  }, [services, serviceSubtypes]);
 
   const submitNewRequest = async () => {
-    if (
-      !form.serviceCategoryId ||
-      !form.serviceSubtypeId ||
-      !form.requestTitle.trim() ||
-      !form.detailedDescription.trim() ||
-      !form.preferredDeliveryDate
-    ) {
-      setError('Please fill all required fields for the new request.');
+    const selectedServiceId = Number(form.serviceCategoryId);
+    const selectedService = services.find((service) => service.id === selectedServiceId);
+    const defaultSubtype = serviceSubtypes.find((item) => item.serviceId === selectedServiceId);
+
+    if (!form.serviceCategoryId) {
+      setError('Please select a service.');
+      return;
+    }
+    if (!selectedService || !defaultSubtype) {
+      setError('The selected service is not available for requests. Please choose another service.');
+      return;
+    }
+    if (!form.requestTitle.trim()) {
+      setError('Please enter a request title.');
+      return;
+    }
+    if (!form.detailedDescription.trim()) {
+      setError('Please enter a detailed description.');
+      return;
+    }
+    if (!form.preferredDeliveryDate) {
+      setError('Please select a preferred delivery date.');
       return;
     }
 
@@ -199,8 +207,8 @@ export const RequestsPage: React.FC = () => {
         preferredDeliveryDate: string;
         priorityLevel: string;
       } = {
-        serviceCategoryId: Number(form.serviceCategoryId),
-        serviceSubtypeId: Number(form.serviceSubtypeId),
+        serviceCategoryId: selectedService.categoryId,
+        serviceSubtypeId: defaultSubtype.id,
         requestTitle: form.requestTitle.trim(),
         detailedDescription: form.detailedDescription.trim(),
         preferredContactMethod: form.preferredContactMethod,
@@ -246,7 +254,6 @@ export const RequestsPage: React.FC = () => {
       ]);
       setForm({
         serviceCategoryId: '',
-        serviceSubtypeId: '',
         requestTitle: '',
         detailedDescription: '',
         preferredContactMethod: 'Email',
@@ -419,26 +426,11 @@ export const RequestsPage: React.FC = () => {
               <label className="text-xs text-gray-500">Category *</label>
               <select
                 value={form.serviceCategoryId}
-                onChange={(event) => setForm((prev) => ({ ...prev, serviceCategoryId: event.target.value, serviceSubtypeId: '' }))}
+                onChange={(event) => setForm((prev) => ({ ...prev, serviceCategoryId: event.target.value }))}
                 className="mt-1 w-full border border-gray-200 rounded-sm px-3 py-2 text-sm"
               >
                 <option value="">Select category</option>
                 {categoryOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Subtype *</label>
-              <select
-                value={form.serviceSubtypeId}
-                onChange={(event) => setForm((prev) => ({ ...prev, serviceSubtypeId: event.target.value }))}
-                className="mt-1 w-full border border-gray-200 rounded-sm px-3 py-2 text-sm"
-              >
-                <option value="">Select subtype</option>
-                {subtypeOptions.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
@@ -507,7 +499,7 @@ export const RequestsPage: React.FC = () => {
           </div>
           {categoryOptions.length === 0 ? (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              No category/subtype options loaded. Please verify access to `/api/service-requests/options`.
+              No service options loaded. Please verify access to `/api/service-requests/options`.
             </p>
           ) : null}
         </div>
