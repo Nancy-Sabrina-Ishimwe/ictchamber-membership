@@ -8,6 +8,132 @@ import { usePortalStore } from '../../../store/portalStore';
 import type { ContactPerson } from '../../../types/portal';
 import { api } from '../../../lib/api';
 
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-sm bg-gray-200 ${className}`} />;
+}
+
+function ProfileFieldSkeleton() {
+  return (
+    <div>
+      <SkeletonBlock className="mb-1.5 h-3 w-24" />
+      <SkeletonBlock className="h-10 w-full" />
+    </div>
+  );
+}
+
+function ContactRowSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-sm border border-gray-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3 sm:items-center">
+        <SkeletonBlock className="h-10 w-10 shrink-0 rounded-full" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <SkeletonBlock className="h-3.5 w-36" />
+          <SkeletonBlock className="h-3 w-52 max-w-full" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <SkeletonBlock className="h-6 w-20 rounded-full" />
+        <div className="flex gap-1">
+          <SkeletonBlock className="h-8 w-8" />
+          <SkeletonBlock className="h-8 w-8" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfilePageSkeleton() {
+  return (
+    <div className="mx-auto max-w-[900px]">
+      <div className="mb-8">
+        <h2 className="text-[22px] font-bold leading-tight text-gray-900">Your company Profile</h2>
+        <p className="mt-2.5 text-sm text-gray-400">
+          Manage your organization&apos;s public information, contact details, and account settings.
+        </p>
+      </div>
+
+      {/* Company Information */}
+      <section className="mb-8 overflow-hidden rounded-sm border border-gray-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-3">
+            <SkeletonBlock className="h-5 w-5" />
+            <div className="space-y-2">
+              <SkeletonBlock className="h-4 w-40" />
+              <SkeletonBlock className="h-3 w-56" />
+            </div>
+          </div>
+        </div>
+        <div className="px-4 py-5 sm:px-5">
+          <div className="flex flex-col items-start gap-6 sm:flex-row">
+            <div className="flex flex-col items-center gap-2">
+              <SkeletonBlock className="h-3 w-20" />
+              <SkeletonBlock className="h-24 w-24 rounded-full" />
+            </div>
+            <div className="flex-1 w-full space-y-3 pt-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ProfileFieldSkeleton />
+                <ProfileFieldSkeleton />
+              </div>
+              <ProfileFieldSkeleton />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Persons */}
+      <section className="mb-8 overflow-hidden rounded-sm border border-gray-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex items-center gap-3">
+            <SkeletonBlock className="h-5 w-5" />
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3.5 w-28" />
+              <SkeletonBlock className="h-3 w-52" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3 px-4 py-5 sm:px-5">
+          <ContactRowSkeleton />
+          <ContactRowSkeleton />
+        </div>
+      </section>
+
+      {/* Account & Security */}
+      <section className="mb-8 overflow-hidden rounded-sm border border-gray-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+          <SkeletonBlock className="h-5 w-5" />
+          <div className="space-y-2">
+            <SkeletonBlock className="h-3.5 w-32" />
+            <SkeletonBlock className="h-3 w-48" />
+          </div>
+        </div>
+        <div className="space-y-5 px-4 py-5 sm:px-5">
+          <div>
+            <SkeletonBlock className="mb-3 h-2.5 w-36" />
+            <ProfileFieldSkeleton />
+            <SkeletonBlock className="mt-2.5 h-3 w-full max-w-md" />
+          </div>
+          <div className="border-t border-gray-100 pt-5">
+            <SkeletonBlock className="mb-3 h-2.5 w-28" />
+            <div className="space-y-3">
+              <ProfileFieldSkeleton />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ProfileFieldSkeleton />
+                <ProfileFieldSkeleton />
+              </div>
+              <SkeletonBlock className="h-8 w-32" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mb-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <SkeletonBlock className="h-10 w-full sm:w-24" />
+        <SkeletonBlock className="h-10 w-full sm:w-36" />
+      </div>
+    </div>
+  );
+}
+
 const ContactRow: React.FC<{
   contact: ContactPerson;
   onEdit: () => void;
@@ -83,6 +209,7 @@ export const ProfilePage: React.FC = () => {
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [contactForm, setContactForm] = useState({
     fullName: '',
     email: '',
@@ -144,6 +271,8 @@ export const ProfilePage: React.FC = () => {
         );
       } catch (fetchError) {
         setError(fetchError instanceof Error ? fetchError.message : 'Failed to load profile data.');
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -359,6 +488,14 @@ export const ProfilePage: React.FC = () => {
       setContactSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <PortalLayout title="Profile">
+        <ProfilePageSkeleton />
+      </PortalLayout>
+    );
+  }
 
   return (
     <PortalLayout title="Profile">
