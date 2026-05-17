@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROUTES } from '../../constants/app';
+import { isStaffRole } from '../../lib/permissions';
 
 interface Props {
   children: React.ReactNode;
@@ -24,14 +25,14 @@ export const ProtectedRoute: React.FC<Props> = ({ children }) => {
   return <>{children}</>;
 };
 
-// ─── Requires admin role ──────────────────────────────────────────────────────
+// ─── Requires admin or view-only staff (STANDARD_USER) ───────────────────────
 export const AdminRoute: React.FC<Props> = ({ children }) => {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
-  if (user.role !== 'admin') return <Navigate to={ROUTES.MEMBER_DASHBOARD} replace />;
+  if (!isStaffRole(user.role)) return <Navigate to={ROUTES.MEMBER_DASHBOARD} replace />;
   return <>{children}</>;
 };
 
@@ -42,7 +43,9 @@ export const MemberRoute: React.FC<Props> = ({ children }) => {
 
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
-  if (user.role !== 'member') return <Navigate to={ROUTES.ADMIN} replace />;
+  if (user.role !== 'member') {
+    return <Navigate to={isStaffRole(user.role) ? ROUTES.ADMIN : ROUTES.LOGIN} replace />;
+  }
   return <>{children}</>;
 };
 
@@ -54,7 +57,7 @@ export const PublicRoute: React.FC<Props> = ({ children }) => {
   if (user) {
     return (
       <Navigate
-        to={user.role === 'admin' ? ROUTES.ADMIN : ROUTES.MEMBER_DASHBOARD}
+        to={isStaffRole(user.role) ? ROUTES.ADMIN : ROUTES.MEMBER_DASHBOARD}
         replace
       />
     );

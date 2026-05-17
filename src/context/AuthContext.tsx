@@ -7,9 +7,10 @@ import React, {
 } from 'react';
 import { setToken, clearToken, getToken } from '../lib/api';
 import { loginApi, getMeApi, logoutApi } from '../services/authService';
+import { canWriteForRole } from '../lib/permissions';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'member' | 'standard_user';
 
 export interface AuthUser {
   id: string;
@@ -26,6 +27,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** False for STANDARD_USER (view-only staff). */
+  canWrite: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
@@ -81,7 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isAuthenticated: !!user, login, logout }}
+      value={{
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        canWrite: user ? canWriteForRole(user.role) : false,
+        login,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
