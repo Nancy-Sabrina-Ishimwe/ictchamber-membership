@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { APP_LOGO_ALT, APP_LOGO_SRC, ROUTES } from '../../constants/app';
+import { APP_LOGO_ALT, ROUTES } from '../../constants/app';
 import {
   FEEDBACK_RATING_OPTIONS,
   type FeedbackSurveyResponse,
@@ -84,7 +84,7 @@ export const ServiceFeedbackPage: React.FC = () => {
     <div className="flex min-h-screen flex-col bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-4 sm:px-6">
-          <img src={APP_LOGO_SRC} alt={APP_LOGO_ALT} className="h-9 w-9 rounded-sm object-contain" />
+          <img src="https://res.cloudinary.com/dc6iwekzx/image/upload/v1778836285/logo_1945919583_1_lwuwo3.png" alt={APP_LOGO_ALT} className="h-9 w-9 rounded-sm object-contain" />
           <div>
             <p className="text-sm font-bold text-gray-900">Rwanda ICT Chamber</p>
             <p className="text-xs font-medium text-[#EF9F27]">Service feedback</p>
