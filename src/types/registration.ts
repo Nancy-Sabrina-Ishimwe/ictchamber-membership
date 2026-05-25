@@ -19,6 +19,7 @@ export interface CompanyInfoData {
   subclusterId: number | null;
   tinNumber: string;
   email: string;
+  primaryPhone: string;
   logoFile?: File | null;
 }
 

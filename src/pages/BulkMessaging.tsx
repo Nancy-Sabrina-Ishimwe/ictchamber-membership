@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
+import { useToast } from "../context/ToastContext";
 import {
   getAudienceMembers,
   getMessagingCampaigns,
@@ -31,7 +32,6 @@ import {
 } from "../services/bulkMessagingService";
 
 type Channel = "email" | "sms";
-type FlashState = { type: "success" | "error"; text: string } | null;
 const MAX_TOTAL_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 const TARGET_OPTIONS: {
@@ -103,6 +103,7 @@ async function fileToAttachment(file: File): Promise<MessagingAttachment> {
 }
 
 export default function BulkMessaging() {
+  const toast = useToast();
   const [channel, setChannel] = useState<Channel>("email");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -117,7 +118,7 @@ export default function BulkMessaging() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showRecipientList, setShowRecipientList] = useState(false);
   const [previewRecipients, setPreviewRecipients] = useState<
-    { id: number; companyName: string; email: string; clusterName: string | null }[]
+    { id: number; companyName: string; email: string; primaryPhone?: string | null; clusterName: string | null }[]
   >([]);
   const [attachments, setAttachments] = useState<MessagingAttachment[]>([]);
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -129,7 +130,6 @@ export default function BulkMessaging() {
   const [activeDraftId, setActiveDraftId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<"draft" | "schedule" | "send" | null>(null);
-  const [flash, setFlash] = useState<FlashState>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -140,10 +140,7 @@ export default function BulkMessaging() {
         setMembers(memberRows);
         setCampaigns(campaignRows);
       } catch (error) {
-        setFlash({
-          type: "error",
-          text: error instanceof Error ? error.message : "Failed to load messaging data.",
-        });
+        toast.error(error instanceof Error ? error.message : "Failed to load messaging data.");
       } finally {
         setLoading(false);
       }
@@ -217,7 +214,7 @@ export default function BulkMessaging() {
     const timer = window.setTimeout(async () => {
       try {
         setPreviewLoading(true);
-        const preview = await getMessagingRecipientsPreview(filters);
+        const preview = await getMessagingRecipientsPreview(filters, channel);
         setRecipientCount(preview.count);
         setPreviewRecipients(preview.items);
       } catch {
@@ -229,7 +226,7 @@ export default function BulkMessaging() {
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [filters, targetMode, clusterId, includeMemberIds]);
+  }, [filters, targetMode, clusterId, includeMemberIds, channel]);
 
   const charsRemaining = 160 - body.length;
   const smsMode = channel === "sms";
@@ -237,6 +234,9 @@ export default function BulkMessaging() {
     targetMode === "specific" ? includeMemberIds.length > 0 : targetMode === "cluster" ? clusterId !== "" : true;
   const canSendEmail =
     !smsMode && subject.trim().length > 0 && body.trim().length > 0 && hasRecipients && recipientCount > 0;
+  const canSendSms =
+    smsMode && body.trim().length > 0 && body.length <= 160 && hasRecipients && recipientCount > 0;
+  const canSend = smsMode ? canSendSms : canSendEmail;
   const previewTitle = subject.trim() || "Subject line will appear here";
   const totalAttachmentBytes = useMemo(
     () => attachments.reduce((sum, attachment) => sum + attachment.size, 0),
@@ -283,12 +283,8 @@ export default function BulkMessaging() {
         throw new Error("Total attachment size must stay under 5 MB.");
       }
       setAttachments(deduped);
-      setFlash(null);
     } catch (error) {
-      setFlash({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to add attachments.",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to add attachments.");
     } finally {
       event.target.value = "";
     }
@@ -302,13 +298,12 @@ export default function BulkMessaging() {
 
   const handleSaveDraft = async () => {
     if (!body.trim()) {
-      setFlash({ type: "error", text: "Add a message body before saving a draft." });
+      toast.error("Add a message body before saving a draft.");
       return;
     }
 
     try {
       setSubmitting("draft");
-      setFlash(null);
       const result = await saveMessagingDraft({
         campaignId: activeDraftId,
         channel,
@@ -319,71 +314,63 @@ export default function BulkMessaging() {
       });
       setActiveDraftId(result.campaign?.id);
       await refreshCampaigns();
-      setFlash({ type: "success", text: result.message });
+      toast.success(result.message ?? "Draft saved successfully.");
     } catch (error) {
-      setFlash({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to save draft.",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to save draft.");
     } finally {
       setSubmitting(null);
     }
   };
 
   const handleSchedule = async () => {
-    if (smsMode) {
-      setFlash({ type: "error", text: "SMS scheduling will be enabled after the SMS API is connected." });
-      return;
-    }
-    if (!canSendEmail) {
-      setFlash({ type: "error", text: "Add a subject, message body, and at least one recipient before scheduling." });
+    if (!canSend) {
+      toast.error(
+        smsMode
+          ? "Add an SMS message (160 characters or less) and at least one recipient with a phone number before scheduling."
+          : "Add a subject, message body, and at least one recipient before scheduling.",
+      );
       return;
     }
 
     try {
       setSubmitting("schedule");
-      setFlash(null);
       const result = await scheduleMessagingCampaign({
-        channel: "email",
+        channel,
         subject: subject.trim(),
         body: body.trim(),
-        attachments,
+        attachments: smsMode ? [] : attachments,
         scheduledFor: new Date(scheduleAt).toISOString(),
         filters,
       });
       setActiveDraftId(result.campaign?.id);
       await refreshCampaigns();
       setScheduleOpen(false);
-      setFlash({ type: "success", text: result.message });
+      toast.success(result.message ?? "Campaign scheduled successfully.");
     } catch (error) {
-      setFlash({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to schedule campaign.",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to schedule campaign.");
     } finally {
       setSubmitting(null);
     }
   };
 
   const handleSendNow = async () => {
-    if (smsMode) {
-      setFlash({ type: "error", text: "SMS sending will be enabled after the SMS API is connected." });
-      return;
-    }
-    if (!canSendEmail) {
-      setFlash({ type: "error", text: "Add a subject, message body, and at least one recipient before sending." });
+    if (!canSend) {
+      toast.error(
+        smsMode
+          ? "Add an SMS message (160 characters or less) and at least one recipient with a phone number before sending."
+          : "Add a subject, message body, and at least one recipient before sending.",
+      );
       return;
     }
 
     try {
       setSubmitting("send");
-      setFlash(null);
       const result = await sendMessagingCampaignNow({
         campaignId: activeDraftId,
-        channel: "email",
+        channel,
         subject: subject.trim(),
         body: body.trim(),
-        attachments,
+        attachments: smsMode ? [] : attachments,
         filters,
       });
       await refreshCampaigns();
@@ -396,12 +383,9 @@ export default function BulkMessaging() {
       setTargetMode("all");
       setClusterId("");
       setMembershipStatus("all");
-      setFlash({ type: "success", text: result.message });
+      toast.success(result.message ?? (smsMode ? "SMS messages sent successfully." : "Emails sent successfully."));
     } catch (error) {
-      setFlash({
-        type: "error",
-        text: error instanceof Error ? error.message : "Failed to send campaign.",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to send campaign.");
     } finally {
       setSubmitting(null);
     }
@@ -409,23 +393,12 @@ export default function BulkMessaging() {
 
   return (
     <div className="space-y-5">
-      {flash ? (
-        <div className={`rounded-md border px-4 py-3 text-sm ${
-            flash.type === "success"
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          {flash.text}
-        </div>
-      ) : null}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Bulk Messaging</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Email all members, a cluster, or hand-picked companies. Scheduled sends are checked every minute on the
-            server.
+            Email or SMS all members, a cluster, or hand-picked companies. Scheduled sends are checked every minute on
+            the server.
           </p>
         </div>
 
@@ -454,9 +427,9 @@ export default function BulkMessaging() {
       </div>
 
       {smsMode ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          SMS composition is available so templates are not blocked, but SMS send and schedule actions stay disabled
-          until the SMS API is connected.
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          SMS is sent to members with a phone number on file. Only recipients with a valid phone number are included in
+          the count below.
         </div>
       ) : null}
 
@@ -614,7 +587,9 @@ export default function BulkMessaging() {
                       {previewRecipients.map((recipient) => (
                         <li key={recipient.id} className="flex justify-between gap-2 border-b border-gray-50 py-1 last:border-0">
                           <span className="font-medium text-gray-800">{recipient.companyName}</span>
-                          <span className="truncate text-gray-400">{recipient.email}</span>
+                          <span className="truncate text-gray-400">
+                            {smsMode ? recipient.primaryPhone ?? "No phone" : recipient.email}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -675,7 +650,10 @@ export default function BulkMessaging() {
                     ) : (
                       <span>{Math.max(0, charsRemaining)} characters remaining</span>
                     )}
-                    <span>Use {"{{companyName}}"}, {"{{email}}"}, or {"{{clusterName}}"} for personalization.</span>
+                    <span>
+                      Use {"{{companyName}}"}, {"{{email}}"}, {"{{clusterName}}"}
+                      {smsMode ? ", or {{primaryPhone}}" : ""} for personalization.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -722,7 +700,7 @@ export default function BulkMessaging() {
                 <button
                   type="button"
                   onClick={() => setScheduleOpen((current) => !current)}
-                  disabled={submitting !== null || smsMode}
+                  disabled={submitting !== null || !canSend}
                   className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Clock size={14} />
@@ -731,11 +709,11 @@ export default function BulkMessaging() {
                 <button
                   type="button"
                   onClick={() => void handleSendNow()}
-                  disabled={submitting !== null || !canSendEmail}
+                  disabled={submitting !== null || !canSend}
                   className="flex items-center gap-2 rounded-md bg-yellow-400 px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Send size={14} />
-                  {submitting === "send" ? "Sending..." : "Send Now"}
+                  {submitting === "send" ? "Sending..." : smsMode ? "Send SMS" : "Send Now"}
                 </button>
               </div>
             </div>
@@ -755,14 +733,15 @@ export default function BulkMessaging() {
                   <button
                     type="button"
                     onClick={() => void handleSchedule()}
-                    disabled={submitting !== null || smsMode}
+                    disabled={submitting !== null || !canSend}
                     className="rounded-md bg-[#0F2A44] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#16395c] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {submitting === "schedule" ? "Scheduling..." : "Confirm Schedule"}
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
-                  The server checks for due scheduled emails every minute and sends them automatically.
+                  The server checks for due scheduled {smsMode ? "SMS" : "email"} campaigns every minute and sends them
+                  automatically.
                 </p>
               </div>
             ) : null}
@@ -866,9 +845,9 @@ export default function BulkMessaging() {
           <div className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900">Delivery Notes</h3>
             <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li>Email send and scheduling are live.</li>
+              <li>Email and SMS send and scheduling are live.</li>
               <li>Scheduled campaigns are stored in the database and processed every minute.</li>
-              <li>SMS delivery is disabled until the SMS API is connected.</li>
+              <li>SMS only reaches members with a primary phone number on file (max 160 characters).</li>
               <li>Attachments are supported for email with a 5 MB total limit.</li>
             </ul>
           </div>

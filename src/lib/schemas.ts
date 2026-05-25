@@ -6,6 +6,7 @@ export const companyInfoSchema = z.object({
   cluster: z.string().min(1, 'Please select a cluster'),
   tinNumber: z.string().min(6, 'Please enter a valid TIN number'),
   email: z.string().email('Please enter a valid email address'),
+  primaryPhone: z.string().min(10, 'Valid phone number required'),
 });
 
 export const founderSchema = z.object({
