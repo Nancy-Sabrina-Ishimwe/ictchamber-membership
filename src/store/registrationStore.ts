@@ -36,6 +36,7 @@ const initialFormData: RegistrationFormData = {
     subclusterId: null,
     tinNumber: '',
     email: '',
+    primaryPhone: '',
     logoFile: null,
   },
   keyContacts: {

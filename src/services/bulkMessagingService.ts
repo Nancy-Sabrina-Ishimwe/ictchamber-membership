@@ -46,6 +46,7 @@ export type MessagingCampaign = {
 export type MessagingRecipient = {
   id: number;
   email: string;
+  primaryPhone?: string | null;
   companyName: string;
   clusterName: string | null;
 };
@@ -64,7 +65,7 @@ export async function getMessagingCampaigns(): Promise<MessagingCampaign[]> {
   return Array.isArray(data?.data) ? data.data : [];
 }
 
-export async function getMessagingRecipientsPreview(filters: MessagingFilters) {
+export async function getMessagingRecipientsPreview(filters: MessagingFilters, channel?: MessagingChannel) {
   const search = new URLSearchParams();
   search.set("targetMode", filters.targetMode);
   if (filters.clusterId) search.set("clusterId", String(filters.clusterId));
@@ -74,6 +75,7 @@ export async function getMessagingRecipientsPreview(filters: MessagingFilters) {
   if (filters.includeMemberIds.length > 0) {
     search.set("includeMemberIds", filters.includeMemberIds.join(","));
   }
+  if (channel) search.set("channel", channel);
 
   const { data } = await api.get<{ data?: { count?: number; items?: MessagingRecipient[] } }>(
     `/messaging/recipients-preview?${search.toString()}`,
@@ -101,7 +103,7 @@ export async function saveMessagingDraft(payload: {
 
 export async function scheduleMessagingCampaign(payload: {
   channel: MessagingChannel;
-  subject: string;
+  subject?: string;
   body: string;
   attachments: MessagingAttachment[];
   scheduledFor: string;
@@ -117,7 +119,7 @@ export async function scheduleMessagingCampaign(payload: {
 export async function sendMessagingCampaignNow(payload: {
   campaignId?: string;
   channel: MessagingChannel;
-  subject: string;
+  subject?: string;
   body: string;
   attachments: MessagingAttachment[];
   filters: MessagingFilters;
