@@ -245,6 +245,7 @@ export const RegistrationStep1: React.FC = () => {
       cluster: formData.companyInfo.cluster,
       tinNumber: formData.companyInfo.tinNumber,
       email: formData.companyInfo.email,
+      primaryPhone: formData.companyInfo.primaryPhone,
     },
   });
 
@@ -302,6 +303,7 @@ export const RegistrationStep1: React.FC = () => {
         role: 'MEMBER',
         companyName: companyValues.officialName,
         address: companyValues.address,
+        primaryPhone: companyValues.primaryPhone,
         clusterId: selectedCluster!.id,
         hasSeal: false, // set after TrustSeal modal in step 2
         founders: contactsValues.founders.map(({ fullName, email, phone }) => ({
@@ -392,6 +394,15 @@ export const RegistrationStep1: React.FC = () => {
               error={companyForm.formState.errors.email?.message}
               {...companyForm.register('email')}
             />
+            <Input
+              label="Company Phone Number"
+              placeholder="+250 700 000 000"
+              error={companyForm.formState.errors.primaryPhone?.message}
+              {...companyForm.register('primaryPhone')}
+            />
+            <p className="text-xs text-gray-500 -mt-2">
+              Used for SMS notifications and official chamber communications.
+            </p>
           </div>
 
           {/* Logo upload */}
