@@ -3,12 +3,15 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  LayoutGrid,
+  List,
   FileText,
   Building2,
   Layers,
   MapPin,
   Plus,
   Search,
+  Table2,
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -30,6 +33,7 @@ type Event = {
 };
 
 type StatusFilter = "all" | Event["status"];
+type EventsViewMode = "grid" | "list" | "table";
 
 export default function Events() {
   const [openModal, setOpenModal] = useState(false);
@@ -43,6 +47,7 @@ export default function Events() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<EventsViewMode>("grid");
 
   const fetchEvents = async () => {
     try {
@@ -289,7 +294,29 @@ export default function Events() {
       </div>
 
       {/* TITLE */}
-      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent & Upcoming Events</h3>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent & Upcoming Events</h3>
+        <div className="inline-flex w-full sm:w-auto items-center rounded-md border border-gray-200 bg-white p-1">
+          <ViewModeButton
+            active={viewMode === "grid"}
+            icon={<LayoutGrid size={14} />}
+            label="Grid"
+            onClick={() => setViewMode("grid")}
+          />
+          <ViewModeButton
+            active={viewMode === "list"}
+            icon={<List size={14} />}
+            label="List"
+            onClick={() => setViewMode("list")}
+          />
+          <ViewModeButton
+            active={viewMode === "table"}
+            icon={<Table2 size={14} />}
+            label="Table"
+            onClick={() => setViewMode("table")}
+          />
+        </div>
+      </div>
       {isLoading ? <p className="text-sm text-gray-500">Loading events...</p> : null}
       {successMessage ? (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
@@ -316,6 +343,16 @@ export default function Events() {
           </button>
           .
         </div>
+      ) : viewMode === "table" ? (
+        <EventsTable events={filteredEvents} onSelectEvent={(event) => setSelectedEvent(event)} />
+      ) : viewMode === "list" ? (
+        <div className="space-y-3">
+          {!isLoading
+            ? filteredEvents.map((event) => (
+                <EventListItem key={event.id} event={event} onClick={() => setSelectedEvent(event)} />
+              ))
+            : null}
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
           {!isLoading
@@ -332,6 +369,34 @@ export default function Events() {
         <EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
       ) : null}
     </div>
+  );
+}
+
+function ViewModeButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center justify-center gap-1.5 rounded px-2.5 py-1.5 text-xs transition-colors ${
+        active
+          ? "bg-gray-900 text-white"
+          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      }`}
+      aria-pressed={active}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -460,6 +525,73 @@ function EventDetailsModal({ event, onClose }: { event: Event; onClose: () => vo
       </div>
     </div>,
     document.body,
+  );
+}
+
+function EventListItem({ event, onClick }: { event: Event; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-md border border-gray-200 bg-white p-3 text-left shadow-sm transition-colors hover:bg-gray-50"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">{event.title}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {formatDateLabel(event.date)} • {event.time} • {event.location}
+          </p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-700">
+          <CheckCircle2 size={11} />
+          {event.status}
+        </span>
+      </div>
+      {event.notes?.trim() ? (
+        <p className="mt-2 line-clamp-2 text-xs text-gray-600">{event.notes.trim()}</p>
+      ) : null}
+    </button>
+  );
+}
+
+function EventsTable({
+  events,
+  onSelectEvent,
+}: {
+  events: Event[];
+  onSelectEvent: (event: Event) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-gray-200 bg-white shadow-sm">
+      <table className="min-w-full text-xs">
+        <thead className="bg-gray-50 text-gray-500">
+          <tr>
+            <th className="px-3 py-2 text-left font-semibold">Title</th>
+            <th className="px-3 py-2 text-left font-semibold">Date</th>
+            <th className="px-3 py-2 text-left font-semibold">Time</th>
+            <th className="px-3 py-2 text-left font-semibold">Location</th>
+            <th className="px-3 py-2 text-left font-semibold">Status</th>
+            <th className="px-3 py-2 text-left font-semibold">Companies</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {events.map((event) => (
+            <tr
+              key={event.id}
+              onClick={() => onSelectEvent(event)}
+              className="cursor-pointer hover:bg-gray-50"
+            >
+              <td className="px-3 py-2 font-medium text-gray-900">{event.title}</td>
+              <td className="px-3 py-2 text-gray-600">{formatDateLabel(event.date)}</td>
+              <td className="px-3 py-2 text-gray-600">{event.time}</td>
+              <td className="px-3 py-2 text-gray-600">{event.location}</td>
+              <td className="px-3 py-2 text-gray-700">{event.status}</td>
+              <td className="px-3 py-2 text-gray-600">{event.companies.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

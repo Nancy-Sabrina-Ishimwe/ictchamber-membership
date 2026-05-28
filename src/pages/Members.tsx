@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { ROUTES } from "../constants/app";
+import { getClustersApi } from "../services/authService";
 
 type Member = {
   id: string;
@@ -41,6 +42,23 @@ type MembersApiResponse = {
   success: boolean;
   count: number;
   data: MemberApiItem[];
+};
+
+type ClusterOption = {
+  id: number;
+  clusterName: string;
+};
+
+type TierOption = {
+  tierId: number;
+  tierName: string;
+};
+
+type DashboardAnalyticsResponse = {
+  success: boolean;
+  data: {
+    membershipByTier: TierOption[];
+  };
 };
 
 const tierStyles = {
@@ -163,25 +181,62 @@ export default function Members() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
+  const [isSubmittingOnboard, setIsSubmittingOnboard] = useState(false);
+  const [clusterOptionsForOnboard, setClusterOptionsForOnboard] = useState<ClusterOption[]>([]);
+  const [tierOptionsForOnboard, setTierOptionsForOnboard] = useState<TierOption[]>([]);
+  const [onboardForm, setOnboardForm] = useState({
+    companyName: "",
+    email: "",
+    address: "",
+    primaryPhone: "",
+    clusterId: "",
+    membershipTierId: "",
+    paymentDate: "",
+    durationYears: "1",
+    founderFullName: "",
+    founderEmail: "",
+    founderPhone: "",
+    repFullName: "",
+    repEmail: "",
+    repPhone: "",
+    repTitle: "",
+    hasSeal: false,
+  });
   const selectAllRef = useRef<HTMLInputElement | null>(null);
   const pageSize = 10;
 
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await api.get<MembersApiResponse>("/members");
-        setMembers((response.data.data ?? []).map(mapMemberFromApi));
-      } catch (fetchError) {
-        setError(fetchError instanceof Error ? fetchError.message : "Failed to load members.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchMembers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await api.get<MembersApiResponse>("/members");
+      setMembers((response.data.data ?? []).map(mapMemberFromApi));
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Failed to load members.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const fetchOnboardOptions = async () => {
+    try {
+      const [clusters, dashboard] = await Promise.all([
+        getClustersApi(),
+        api.get<DashboardAnalyticsResponse>("/analytics/dashboard"),
+      ]);
+      setClusterOptionsForOnboard(clusters.map((cluster) => ({ id: cluster.id, clusterName: cluster.clusterName })));
+      setTierOptionsForOnboard(dashboard.data.data.membershipByTier ?? []);
+    } catch (optionsError) {
+      setError(optionsError instanceof Error ? optionsError.message : "Failed to load onboarding options.");
+    }
+  };
+
+  useEffect(() => {
     void fetchMembers();
+    void fetchOnboardOptions();
 
     const handleDocumentClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -292,6 +347,71 @@ export default function Members() {
     return ["Activate", "Deactivate"];
   };
 
+  const handleOnboardInputChange = (field: keyof typeof onboardForm, value: string | boolean) => {
+    setOnboardForm((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const resetOnboardForm = () => {
+    setOnboardForm({
+      companyName: "",
+      email: "",
+      address: "",
+      primaryPhone: "",
+      clusterId: "",
+      membershipTierId: "",
+      paymentDate: "",
+      durationYears: "1",
+      founderFullName: "",
+      founderEmail: "",
+      founderPhone: "",
+      repFullName: "",
+      repEmail: "",
+      repPhone: "",
+      repTitle: "",
+      hasSeal: false,
+    });
+  };
+
+  const submitOnboarding = async () => {
+    try {
+      setIsSubmittingOnboard(true);
+      setError(null);
+      setSuccessMessage(null);
+      await api.post("/members/onboard", {
+        companyName: onboardForm.companyName,
+        email: onboardForm.email,
+        address: onboardForm.address,
+        primaryPhone: onboardForm.primaryPhone,
+        clusterId: Number(onboardForm.clusterId),
+        membershipTierId: Number(onboardForm.membershipTierId),
+        paymentDate: new Date(onboardForm.paymentDate).toISOString(),
+        durationYears: Number(onboardForm.durationYears) === 2 ? 2 : 1,
+        hasSeal: onboardForm.hasSeal,
+        founders: [
+          {
+            fullName: onboardForm.founderFullName,
+            email: onboardForm.founderEmail,
+            phone: onboardForm.founderPhone,
+          },
+        ],
+        alternateRepresentative: {
+          fullName: onboardForm.repFullName,
+          email: onboardForm.repEmail,
+          phone: onboardForm.repPhone,
+          title: onboardForm.repTitle,
+        },
+      });
+      await fetchMembers();
+      setSuccessMessage("Member onboarded successfully.");
+      setIsOnboardModalOpen(false);
+      resetOnboardForm();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to onboard member.");
+    } finally {
+      setIsSubmittingOnboard(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
 
@@ -302,6 +422,13 @@ export default function Members() {
           <p className="text-gray-400 text-xs mt-0.5">List of companies and individuals that subscribed</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsOnboardModalOpen(true)}
+            className="px-4 py-1.5 bg-gray-900 hover:bg-gray-800 transition-colors text-white rounded-md text-xs font-semibold"
+          >
+            Onboard Member
+          </button>
           <div className="px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs shadow-sm">
             Total Active: <span className="font-bold text-green-600">{activeMembersCount}</span>
           </div>
@@ -318,6 +445,75 @@ export default function Members() {
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {error}
+        </div>
+      ) : null}
+      {successMessage ? (
+        <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+          {successMessage}
+        </div>
+      ) : null}
+
+      {isOnboardModalOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-4 py-3">
+              <h3 className="text-sm font-semibold text-gray-900">Onboard New Member</h3>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Add a member directly with payment date as join date. A generated password will be emailed to the member.
+              </p>
+            </div>
+            <div className="grid gap-3 p-4 md:grid-cols-2">
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Company Name" value={onboardForm.companyName} onChange={(e) => handleOnboardInputChange("companyName", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Email" value={onboardForm.email} onChange={(e) => handleOnboardInputChange("email", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Primary Phone" value={onboardForm.primaryPhone} onChange={(e) => handleOnboardInputChange("primaryPhone", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs md:col-span-2" placeholder="Address" value={onboardForm.address} onChange={(e) => handleOnboardInputChange("address", e.target.value)} />
+              <select className="rounded border border-gray-200 px-3 py-2 text-xs" value={onboardForm.clusterId} onChange={(e) => handleOnboardInputChange("clusterId", e.target.value)}>
+                <option value="">Select Cluster</option>
+                {clusterOptionsForOnboard.map((cluster) => (
+                  <option key={cluster.id} value={String(cluster.id)}>{cluster.clusterName}</option>
+                ))}
+              </select>
+              <select className="rounded border border-gray-200 px-3 py-2 text-xs" value={onboardForm.membershipTierId} onChange={(e) => handleOnboardInputChange("membershipTierId", e.target.value)}>
+                <option value="">Select Tier</option>
+                {tierOptionsForOnboard.map((tier) => (
+                  <option key={tier.tierId} value={String(tier.tierId)}>{tier.tierName}</option>
+                ))}
+              </select>
+              <input type="datetime-local" className="rounded border border-gray-200 px-3 py-2 text-xs" value={onboardForm.paymentDate} onChange={(e) => handleOnboardInputChange("paymentDate", e.target.value)} />
+              <select className="rounded border border-gray-200 px-3 py-2 text-xs" value={onboardForm.durationYears} onChange={(e) => handleOnboardInputChange("durationYears", e.target.value)}>
+                <option value="1">1 year</option>
+                <option value="2">2 years</option>
+              </select>
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Founder Full Name" value={onboardForm.founderFullName} onChange={(e) => handleOnboardInputChange("founderFullName", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Founder Email" value={onboardForm.founderEmail} onChange={(e) => handleOnboardInputChange("founderEmail", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs md:col-span-2" placeholder="Founder Phone" value={onboardForm.founderPhone} onChange={(e) => handleOnboardInputChange("founderPhone", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Representative Full Name" value={onboardForm.repFullName} onChange={(e) => handleOnboardInputChange("repFullName", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Representative Email" value={onboardForm.repEmail} onChange={(e) => handleOnboardInputChange("repEmail", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Representative Phone" value={onboardForm.repPhone} onChange={(e) => handleOnboardInputChange("repPhone", e.target.value)} />
+              <input className="rounded border border-gray-200 px-3 py-2 text-xs" placeholder="Representative Title" value={onboardForm.repTitle} onChange={(e) => handleOnboardInputChange("repTitle", e.target.value)} />
+              <label className="md:col-span-2 flex items-center gap-2 text-xs text-gray-700">
+                <input type="checkbox" checked={onboardForm.hasSeal} onChange={(e) => handleOnboardInputChange("hasSeal", e.target.checked)} />
+                Has Trust Seal
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setIsOnboardModalOpen(false)}
+                className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingOnboard}
+                onClick={() => void submitOnboarding()}
+                className="rounded bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {isSubmittingOnboard ? "Submitting..." : "Onboard"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 
