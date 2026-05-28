@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { usePortalStore } from '../../../store/portalStore';
 import { TIER_LABELS } from '../../../types/portal';
 import { useAuth } from '../../../context/AuthContext';
 import { ROUTES } from '../../../constants/app';
 import { PORTAL_NAV_ITEMS } from '../../../constants/navigation';
-import { api } from '../../../lib/api';
 import type { NavItem } from '../../../constants/navigation';
 import type { MembershipTier } from '../../../types/portal';
 
@@ -110,9 +109,6 @@ const TopBar: React.FC<{ title: string; onToggleSidebar: () => void }> = ({
   title,
   onToggleSidebar,
 }) => {
-  const { notifications } = usePortalStore();
-  const [search, setSearch] = useState('');
-
   return (
     <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30">
       <div className="flex items-center gap-3">
@@ -125,38 +121,6 @@ const TopBar: React.FC<{ title: string; onToggleSidebar: () => void }> = ({
           <Menu className="w-4.5 h-4.5" />
         </button>
         <h1 className="text-sm font-semibold text-gray-900">{title}</h1>
-      </div>
-      <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="relative hidden sm:block">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search portal..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#EF9F27]/40 focus:border-[#EF9F27] w-48 transition-all"
-          />
-        </div>
-
-        {/* Notifications */}
-        <button
-          type="button"
-          className="relative w-8 h-8 flex items-center justify-center rounded-sm hover:bg-gray-100 transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4.5 w-4.5 text-gray-600" strokeWidth={2} />
-          {notifications > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-          )}
-        </button>
       </div>
     </header>
   );
@@ -177,52 +141,15 @@ export const PortalLayout: React.FC<PortalLayoutProps> = ({ title, children }) =
     if (!user || user.role !== 'member' || hydratedMemberId === user.id) {
       return;
     }
-
-    const hydratePortalMember = async () => {
-      try {
-        const response = await api.get<{
-          success: boolean;
-          data: {
-            id: number;
-            companyName?: string;
-            email?: string;
-            address?: string | null;
-            tin?: string | null;
-            primaryPhone?: string | null;
-            website?: string | null;
-            description?: string | null;
-            logoUrl?: string | null;
-            active?: boolean;
-            selectedTier?: { tierName?: string | null } | null;
-            memberships?: Array<{ expiresAt?: string | null; createdAt?: string | null }>;
-          };
-        }>('/auth/me');
-
-        const payload = response.data.data;
-        const currentMembership = payload.memberships?.[0];
-
-        updateMember({
-          id: String(payload.id ?? user.id),
-          companyName: payload.companyName ?? user.companyName ?? '',
-          email: payload.email ?? '',
-          address: payload.address ?? '',
-          tinNumber: payload.tin ?? '',
-          phone: payload.primaryPhone ?? '',
-          website: payload.website ?? '',
-          description: payload.description ?? '',
-          logoUrl: payload.logoUrl ?? undefined,
-          tier: mapTier(payload.selectedTier?.tierName ?? undefined) ?? undefined,
-          status: payload.active ? 'active' : 'inactive',
-          validFrom: currentMembership?.createdAt ?? '',
-          expiryDate: currentMembership?.expiresAt ?? '',
-        });
-        setHydratedMemberId(String(payload.id ?? user.id));
-      } catch {
-        // Keep existing shell visible; profile page has fuller error handling.
-      }
-    };
-
-    void hydratePortalMember();
+    updateMember({
+      id: user.id,
+      companyName: user.companyName ?? '',
+      representedBy: user.name ?? '',
+      email: user.email ?? '',
+      logoUrl: user.logoUrl ?? undefined,
+      tier: mapTier(user.tier) ?? undefined,
+    });
+    setHydratedMemberId(user.id);
   }, [hydratedMemberId, setHydratedMemberId, updateMember, user]);
 
   return (

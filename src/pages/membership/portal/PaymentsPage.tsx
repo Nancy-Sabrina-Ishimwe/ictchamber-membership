@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
 import { Toggle } from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
@@ -28,6 +29,8 @@ declare global {
 }
 
 export const PaymentsPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { member, toggleAutomatedReminders, updateMember } = usePortalStore();
   const [duration, setDuration] = useState<1 | 2>(1);
   const [page, setPage] = useState(0);
@@ -42,6 +45,10 @@ export const PaymentsPage: React.FC = () => {
   const [email, setEmail] = useState(member.email);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSdkReady, setIsSdkReady] = useState(false);
+  const requestedUpgradeTier = mapTierName(
+    (location.state as { requestedUpgradeTier?: string | null } | null)?.requestedUpgradeTier ?? undefined,
+  );
+  const requestedDuration = (location.state as { requestedDuration?: 1 | 2 } | null)?.requestedDuration;
 
   const fetchPaymentSnapshot = async () => {
     try {
@@ -124,6 +131,17 @@ export const PaymentsPage: React.FC = () => {
   useEffect(() => {
     void fetchPaymentSnapshot();
   }, [member.email]);
+
+  useEffect(() => {
+    if (!requestedUpgradeTier) return;
+    setSelectedTier((previous) =>
+      isUpgradeableTier(requestedUpgradeTier, currentTier) ? requestedUpgradeTier : previous,
+    );
+    if (requestedDuration === 1 || requestedDuration === 2) {
+      setDuration(requestedDuration);
+    }
+    navigate(location.pathname, { replace: true });
+  }, [currentTier, location.pathname, navigate, requestedDuration, requestedUpgradeTier]);
 
   useEffect(() => {
     const existingScript = document.querySelector(`script[src="${IREMBO_INLINE_SCRIPT}"]`);

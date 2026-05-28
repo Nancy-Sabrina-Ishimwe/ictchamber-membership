@@ -33,7 +33,6 @@ export default function LoginPage() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd]   = useState(false);
-  const [remember, setRemember] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
@@ -181,18 +180,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
-            {/* Remember me */}
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 accent-[#EF9F27]"
-              />
-              <span className="text-xs text-gray-600">Keep me signed in</span>
-            </label>
-
             {/* Error */}
             {error ? (
               <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">

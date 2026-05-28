@@ -48,9 +48,9 @@ export const ADMIN_BOTTOM_NAV_ITEMS: NavItem[] = [
 export const PORTAL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard',   path: ROUTES.MEMBER_DASHBOARD, Icon: LayoutDashboard },
   { label: 'My Requests', path: ROUTES.MEMBER_REQUESTS,  Icon: FileText        },
-  { label: 'My Profile',  path: ROUTES.MEMBER_PROFILE,   Icon: User            },
   { label: 'My Benefits', path: ROUTES.MEMBER_BENEFITS,  Icon: Star            },
   { label: 'Payments',    path: ROUTES.MEMBER_PAYMENTS,  Icon: CreditCard      },
+  { label: 'My Profile',  path: ROUTES.MEMBER_PROFILE,   Icon: User            },
 ];
 
 // Re-export LogOut icon so consumers can import it alongside nav items

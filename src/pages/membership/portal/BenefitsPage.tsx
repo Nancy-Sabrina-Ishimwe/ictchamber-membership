@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PortalLayout } from '../../../components/membership/portal/PortalLayout';
-import { BenefitBar } from '../../../components/membership/portal/PortalUI';
 import { usePortalStore } from '../../../store/portalStore';
 import { TIER_PRICES, TIER_LABELS } from '../../../types/portal';
 import type { MembershipTier } from '../../../types/portal';
 import { api } from '../../../lib/api';
+import { ROUTES } from '../../../constants/app';
 
 const TIER_DEFS: {
   id: MembershipTier;
@@ -39,7 +40,8 @@ const TIER_DEFS: {
 ];
 
 export const BenefitsPage: React.FC = () => {
-  const { member, benefitUsage } = usePortalStore();
+  const navigate = useNavigate();
+  const { member } = usePortalStore();
   const [currentTier, setCurrentTier] = useState<MembershipTier>(member.tier);
   const [expiryDate, setExpiryDate] = useState(member.expiryDate);
   const [active, setActive] = useState(member.status === 'active');
@@ -83,28 +85,15 @@ export const BenefitsPage: React.FC = () => {
 
   const tierOrder = useMemo(() => ['bronze', 'silver', 'gold', 'platinum'] as const, []);
 
-  const handleDownloadBenefitsGuide = () => {
-    const tier = TIER_DEFS.find((item) => item.id === currentTier);
-    const content = [
-      `Rwanda ICT Chamber - ${TIER_LABELS[currentTier]} Benefits Guide`,
-      `Renewal Date: ${expiryDate}`,
-      '',
-      tier ? `${tier.note}` : 'Core benefits include:',
-      ...(tier?.features ?? []),
-    ].join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `benefits-guide-${currentTier}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleTierAction = (tier: MembershipTier) => {
-    if (tier === currentTier) return;
-    const verb = tierOrder.indexOf(tier) > tierOrder.indexOf(currentTier) ? 'upgrade' : 'switch';
-    setActionMessage(`Tier ${verb} request started for ${TIER_LABELS[tier]}. Please complete payment from the Payments page.`);
+    if (tier === currentTier || tierOrder.indexOf(tier) <= tierOrder.indexOf(currentTier)) return;
+    setActionMessage(`Preparing upgrade to ${TIER_LABELS[tier]}. Continue in the Payments page to complete checkout.`);
+    navigate(ROUTES.MEMBER_PAYMENTS, {
+      state: {
+        requestedUpgradeTier: tier,
+        requestedDuration: 1,
+      },
+    });
   };
 
   return (
@@ -115,7 +104,7 @@ export const BenefitsPage: React.FC = () => {
             <h2 className="text-[22px] font-bold leading-tight text-gray-900">My Benefits</h2>
             <p className="mt-1 text-xs text-gray-400">Manage your membership perks and track usage.</p>
           </div>
-          <button
+          {/* <button
             type="button"
             onClick={handleDownloadBenefitsGuide}
             className="flex items-center gap-2 rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-900 transition-colors hover:border-gray-300"
@@ -124,7 +113,7 @@ export const BenefitsPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
             Download Benefits Guide
-          </button>
+          </button> */}
         </div>
         {actionMessage ? (
           <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -162,19 +151,6 @@ export const BenefitsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="pt-0 lg:pt-7">
-              <div className="mb-3 flex items-center gap-2">
-                <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
-                <h3 className="text-sm font-semibold text-gray-900">Benefit Usage this Year</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                {benefitUsage.map((b) => (
-                  <BenefitBar key={b.label} label={b.label} used={b.used} total={b.total} />
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -247,13 +223,7 @@ export const BenefitsPage: React.FC = () => {
                       </svg>
                     </button>
                   ) : (
-                    <button
-                      className="w-full rounded-sm border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-900 transition-colors hover:border-gray-300 cursor-pointer"
-                      type="button"
-                      onClick={() => handleTierAction(tier.id)}
-                    >
-                      Switch to {tier.id.charAt(0).toUpperCase() + tier.id.slice(1)}
-                    </button>
+                    <div className="h-[34px]" />
                   )}
                 </div>
               </div>
@@ -263,11 +233,6 @@ export const BenefitsPage: React.FC = () => {
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-100 pt-3.5">
           <p className="text-xs text-gray-400">© 2026 Rwanda ICT Chamber. All rights reserved.</p>
-          <div className="flex flex-wrap gap-4">
-            {['Support', 'Privacy Policy', 'Terms of Service'].map((l) => (
-              <a key={l} href="#" className="text-xs text-gray-400 transition-colors hover:text-gray-600">{l}</a>
-            ))}
-          </div>
         </div>
       </div>
     </PortalLayout>

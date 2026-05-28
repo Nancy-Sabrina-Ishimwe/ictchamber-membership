@@ -1,497 +1,149 @@
-import { Search, Plus, Pencil, Trash2, Filter, ShieldCheck, Users, SlidersHorizontal, KeyRound, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
-import { createPortal } from "react-dom";
-
-type Role = {
-  name: string;
-  description: string;
-  users: number;
-  permissions: string[];
-};
-
-const roles: Role[] = [
-  {
-    name: "Super Admin",
-    description:
-      "Unrestricted access to all system modules, settings, and full user management capabilities.",
-    users: 1,
-    permissions: ["All Permissions"],
-  },
-  {
-    name: "Admin",
-    description:
-      "Manage most general settings, user accounts, and can oversee daily operational content.",
-    users: 5,
-    permissions: ["Manage Users", "General Settings", "View Audit Logs"],
-  },
-  {
-    name: "Membership Officer",
-    description:
-      "Dedicated to managing member company profiles, applications, and related communications.",
-    users: 12,
-    permissions: ["Manage Members", "Communications", "Generate Reports"],
-  },
-  {
-    name: "Finance Officer",
-    description:
-      "Access to financial records, invoicing, payment tracking, and financial reporting.",
-    users: 3,
-    permissions: ["View Finances", "Manage Invoices", "Export Financials"],
-  },
-  {
-    name: "Support Officer",
-    description:
-      "Handle incoming support tickets, member inquiries, and basic user assistance.",
-    users: 8,
-    permissions: ["Manage Tickets", "View User Profiles"],
-  },
-  {
-    name: "Viewer",
-    description:
-      "Read-only access to specific dashboards and public-facing directory information.",
-    users: 25,
-    permissions: ["View Dashboards", "Read-Only Directory"],
-  },
-];
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function Settings() {
-  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
-  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const { user } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setMessage(null);
+    setMessageType(null);
+
+    if (!user?.email) {
+      setMessageType("error");
+      setMessage("Unable to determine your account. Please sign in again.");
+      return;
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setMessageType("error");
+      setMessage("Please fill in all password fields.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setMessageType("error");
+      setMessage("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setMessageType("error");
+      setMessage("New password and confirmation do not match.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await api.post("/auth/change-password", {
+        email: user.email,
+        oldPassword: currentPassword,
+        newPassword,
+      });
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMessageType("success");
+      setMessage("Password updated successfully.");
+    } catch (error) {
+      const fallback = "Failed to update password.";
+      const errorMessage =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message: unknown }).message === "string"
+          ? (error as { message: string }).message
+          : fallback;
+      setMessageType("error");
+      setMessage(errorMessage || fallback);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="space-y-5">
-      {/* TABS */}
-      <div className="w-fit max-w-full rounded-md border border-gray-200 bg-white p-1.5 overflow-x-auto">
-        <div className="inline-flex min-w-max gap-1">
-          <Tab label="User roles & access management" icon={<ShieldCheck size={14} />} to="/admin/settings" end />
+    <div className="mx-auto max-w-2xl">
+      <div className="rounded-md border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-2xl font-bold text-gray-900">Change Password</h2>
+        <p className="mt-2 text-sm text-gray-500">
+          Update your admin account password to keep your account secure.
+        </p>
 
-          <Tab
-            label="User management"
-            icon={<Users size={14} />}
-            to="/admin/settings/users"
-          />
-
-          <Tab
-            label="General setting"
-            icon={<SlidersHorizontal size={14} />}
-            to="/admin/settings/general"
-          />
-
-          <Tab
-            label="Security settings"
-            icon={<KeyRound size={14} />}
-            to="/admin/settings/security"
-          />
-        </div>
-      </div>
-
-      {/* HEADER */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-[24px] leading-tight font-bold tracking-[-0.02em] text-gray-900">
-            User Roles & Access Management
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-500">
-            Control what each role can access and manage within the system. Define precise permissions to
-            maintain security and operational efficiency.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowCreateRoleModal(true)}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400"
-        >
-          <Plus size={15} />
-          Create New Role
-        </button>
-      </div>
-
-      {/* SEARCH + FILTER */}
-      <div className="bg-white border rounded-md p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-
-        <div className="flex items-center border rounded-md px-3 py-2 w-full max-w-md">
-          <Search size={16} className="text-gray-400 mr-2" />
-          <input
-            placeholder="Search roles or permissions..."
-            className="outline-none w-full text-sm"
-          />
-        </div>
-
-        <button className="sm:ml-auto flex items-center gap-2 border px-4 py-2 rounded-md text-sm">
-          <Filter size={16} />
-          Filters
-        </button>
-      </div>
-
-      {/* TABLE */}
-      <div className="bg-white border rounded-md overflow-hidden">
-
-        {/* HEADER */}
-        <div className="hidden lg:grid grid-cols-5 text-xs text-gray-400 px-6 py-3 border-b">
-          <span>ROLE NAME</span>
-          <span>DESCRIPTION</span>
-          <span>USERS COUNT</span>
-          <span>PERMISSIONS</span>
-          <span className="text-right">ACTIONS</span>
-        </div>
-
-        {/* ROWS */}
-        {roles.map((role, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-1 lg:grid-cols-5 gap-3 px-4 sm:px-6 py-5 border-b items-start"
-          >
-            {/* NAME */}
-            <div className="font-semibold text-sm">{role.name}</div>
-
-            {/* DESCRIPTION */}
-            <div className="text-sm text-gray-500 pr-4">
-              {role.description}
-            </div>
-
-            {/* USERS */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs">
-                {role.users}
-              </span>
-              <span className="text-gray-500">Active</span>
-            </div>
-
-            {/* PERMISSIONS */}
-            <div className="flex flex-wrap gap-2">
-              {role.permissions.map((p, i) => (
-                <span
-                  key={i}
-                  className="bg-gray-100 px-2 py-1 rounded-md text-xs"
-                >
-                  {p}
-                </span>
-              ))}
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex lg:justify-end gap-3 text-gray-400">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole(role);
-                  setShowEditRoleModal(true);
-                }}
-                className="text-gray-400 transition-colors hover:text-black"
-                aria-label={`Edit ${role.name}`}
-              >
-                <Pencil size={16} />
-              </button>
-              <Trash2 size={16} className="cursor-pointer hover:text-red-500" />
-            </div>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div>
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+              Current Password
+            </label>
+            <input
+              id="currentPassword"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+              autoComplete="current-password"
+            />
           </div>
-        ))}
 
-        {/* FOOTER */}
-        <div className="px-6 py-4 text-sm text-gray-400 flex flex-col gap-2 sm:flex-row sm:justify-between">
-          <span>Showing 1 to 6 of 6 roles</span>
+          <div>
+            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+              New Password
+            </label>
+            <input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+              autoComplete="new-password"
+            />
+          </div>
 
-          <div className="flex gap-2">
-            <button className="px-3 py-1 border rounded-md text-xs text-gray-400">
-              Previous
-            </button>
-            <button className="px-3 py-1 border rounded-md text-xs text-gray-400">
-              Next
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              Confirm New Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
+              autoComplete="new-password"
+            />
+          </div>
+
+          {message ? (
+            <div
+              className={`rounded-md px-3 py-2 text-sm ${
+                messageType === "success"
+                  ? "bg-green-50 text-green-700"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              {message}
+            </div>
+          ) : null}
+
+          <div className="pt-1">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Updating..." : "Update Password"}
             </button>
           </div>
-        </div>
+        </form>
       </div>
-
-      {showCreateRoleModal ? (
-        <CreateRoleModal onClose={() => setShowCreateRoleModal(false)} />
-      ) : null}
-
-      {showEditRoleModal && selectedRole ? (
-        <EditRoleModal
-          role={selectedRole}
-          onClose={() => {
-            setShowEditRoleModal(false);
-            setSelectedRole(null);
-          }}
-        />
-      ) : null}
     </div>
-  );
-}
-
-/* ================= SMALL COMPONENT ================= */
-
-function Tab({
-  label,
-  icon,
-  to,
-  end,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  to: string;
-  end?: boolean;
-}) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        `inline-flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ${
-          isActive
-            ? "bg-yellow-500 text-black"
-            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-        }`
-      }
-    >
-      {icon ? <span className="text-black">{icon}</span> : null}
-      {label}
-    </NavLink>
-  );
-}
-
-function CreateRoleModal({ onClose }: { onClose: () => void }) {
-  const permissions = [
-    "View Applications",
-    "Manage Payments",
-    "Edit Settings",
-    "Manage Users",
-    "Approve Members",
-    "Access Reports",
-    "Send Messages",
-  ];
-
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 sm:p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[520px] rounded-md border border-gray-200 bg-white shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3.5 sm:px-5 sm:py-4">
-          <h3 className="text-xl font-bold tracking-[-0.02em] text-gray-900">Create New Role</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
-            aria-label="Close create role modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-4.5">
-          <div>
-            <label className="text-sm font-medium text-gray-800">
-              Role Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              placeholder="e.g., Senior Membership Officer"
-              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              A unique name to identify this role within the system.
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-800">Description</label>
-            <textarea
-              rows={2}
-              placeholder="Briefly describe the responsibilities and access level of this role..."
-              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-800">Permissions Access</label>
-            <div className="mt-1.5 grid grid-cols-1 gap-1 rounded-md border border-gray-200 p-2 sm:grid-cols-2">
-              {permissions.map((permission) => (
-                <label key={permission} className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <input type="checkbox" className="h-3.5 w-3.5 rounded border-gray-300 accent-yellow-500" />
-                  {permission}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-800">Users Assignment</label>
-              <span className="text-xs text-gray-500">Optional</span>
-            </div>
-            <button
-              type="button"
-              className="mt-1.5 flex w-full items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-left text-sm text-gray-500"
-            >
-              <span>Search and add users...</span>
-              <span className="text-gray-400">⌄</span>
-            </button>
-          </div>
-
-          <div className="rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-gray-700">
-            <span className="font-semibold">Note:</span> Changes apply immediately to assigned users. They may need to refresh
-            their session to see updated access.
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-2 sm:px-5 sm:py-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-yellow-500 px-5 py-1.5 text-sm font-medium text-black hover:bg-yellow-400"
-          >
-            Save Role
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-function EditRoleModal({
-  role,
-  onClose,
-}: {
-  role: Role;
-  onClose: () => void;
-}) {
-  const permissions = [
-    "View Applications",
-    "Manage Payments",
-    "Edit Settings",
-    "Manage Users",
-    "Approve Members",
-    "Access Reports",
-    "Send Messages",
-  ];
-
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 sm:p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[520px] rounded-md border border-gray-200 bg-white shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3.5 sm:px-5 sm:py-4">
-          <h3 className="text-xl font-bold tracking-[-0.02em] text-gray-900">Edit Role</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
-            aria-label="Close edit role modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-3 px-4 py-4 sm:px-5 sm:py-4.5">
-          <div>
-            <label className="text-sm font-medium text-gray-800">
-              Role Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              defaultValue={role.name}
-              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              A unique name to identify this role within the system.
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-800">Description</label>
-            <textarea
-              rows={2}
-              defaultValue={role.description}
-              className="mt-1.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-yellow-500"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-800">Permissions Access</label>
-            <div className="mt-1.5 grid grid-cols-1 gap-1 rounded-md border border-gray-200 p-2 sm:grid-cols-2">
-              {permissions.map((permission) => (
-                <label key={permission} className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    defaultChecked={role.permissions.includes(permission)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 accent-yellow-500"
-                  />
-                  {permission}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-800">Users Assignment</label>
-              <span className="text-xs text-gray-500">Optional</span>
-            </div>
-            <button
-              type="button"
-              className="mt-1.5 flex w-full items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-left text-sm text-gray-500"
-            >
-              <span>Search and add users...</span>
-              <span className="text-gray-400">⌄</span>
-            </button>
-          </div>
-
-          <div className="rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-gray-700">
-            <span className="font-semibold">Note:</span> Changes apply immediately to assigned users. They may need to refresh
-            their session to see updated access.
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-2 sm:px-5 sm:py-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-yellow-500 px-5 py-1.5 text-sm font-medium text-black hover:bg-yellow-400"
-          >
-            Save Changes
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }

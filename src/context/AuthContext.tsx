@@ -21,6 +21,8 @@ export interface AuthUser {
   companyName?: string;
   /** Membership tier slug, e.g. "gold" */
   tier?: string;
+  /** Company profile image URL */
+  logoUrl?: string;
 }
 
 interface AuthContextValue {

@@ -842,15 +842,6 @@ export default function BulkMessaging() {
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900">Delivery Notes</h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li>Email and SMS send and scheduling are live.</li>
-              <li>Scheduled campaigns are stored in the database and processed every minute.</li>
-              <li>SMS only reaches members with a primary phone number on file (max 160 characters).</li>
-              <li>Attachments are supported for email with a 5 MB total limit.</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>

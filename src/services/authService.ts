@@ -59,6 +59,7 @@ export function backendUserToAuthUser(user: BackendUser): AuthUser {
     role: mapRole(user.role),
     companyName: user.companyName,
     tier: tier,
+    logoUrl: user.logoUrl,
   };
 }
 

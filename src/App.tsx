@@ -10,6 +10,7 @@ import AllServiceRequestsPage from './pages/AllServiceRequestsPage';
 import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
 import GeneralSettings from './pages/GeneralSettings';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import LoginPage from './pages/LoginPage';
 import Members from './pages/Members';
 import MemberProfile from './pages/MemberProfile';
@@ -66,6 +67,14 @@ function App() {
           element={
             <PublicRoute>
               <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path={ROUTES.FORGOT_PASSWORD}
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
             </PublicRoute>
           }
         />
