@@ -5,25 +5,111 @@ import { usePortalStore } from '../../../store/portalStore';
 import { TIER_LABELS, TIER_PRICES } from '../../../types/portal';
 import type { MembershipTier, PaymentRecord } from '../../../types/portal';
 import { api } from '../../../lib/api';
-import { initiatePaymentApi } from '../../../services/paymentService';
-import type { MobileMoneyCarrier } from '../../../services/paymentService';
+import { activateInlinePayment, createInlinePaymentInvoice } from '../../../services/paymentService';
 
 const PAGE_SIZE = 5;
+const IREMBO_INLINE_SCRIPT = 'https://dashboard.sandbox.irembopay.com/assets/payment/inline.js';
+const IREMBO_PUBLIC_KEY = 'pk_live_c8744de681df47c892985084d6c92abb';
+
+type IremboPayResponse = { [key: string]: unknown };
+
+declare global {
+  interface Window {
+    IremboPay?: {
+      locale: { EN: string };
+      initiate: (options: {
+        publicKey: string;
+        invoiceNumber: string;
+        locale: string;
+        callback: (err: unknown, resp: IremboPayResponse) => void;
+      }) => void;
+    };
+  }
+}
 
 export const PaymentsPage: React.FC = () => {
-  const { member, toggleAutomatedReminders } = usePortalStore();
+  const { member, toggleAutomatedReminders, updateMember } = usePortalStore();
   const [duration, setDuration] = useState<1 | 2>(1);
   const [page, setPage] = useState(0);
   const [processingRenewal, setProcessingRenewal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [currentTier, setCurrentTier] = useState<MembershipTier>(member.tier);
+  const [selectedTier, setSelectedTier] = useState<MembershipTier>(member.tier);
   const [status, setStatus] = useState<'Active' | 'Inactive'>(member.status === 'active' ? 'Active' : 'Inactive');
   const [validFrom, setValidFrom] = useState(member.validFrom);
   const [expiryDate, setExpiryDate] = useState(member.expiryDate);
   const [email, setEmail] = useState(member.email);
-  const [accountIdentifier, setAccountIdentifier] = useState('');
-  const [carrier, setCarrier] = useState<MobileMoneyCarrier>('MTN');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSdkReady, setIsSdkReady] = useState(false);
+
+  const fetchPaymentSnapshot = async () => {
+    try {
+      setError(null);
+      const response = await api.get<{
+        success: boolean;
+        data: {
+          email: string;
+          active: boolean;
+          selectedTier?: { tierName?: string | null } | null;
+          subscriptions?: Array<{ startDate: string; endDate: string; active: boolean }>;
+          membershipPayments?: Array<{
+            id: number;
+            invoiceNumber: string;
+            paidAt?: string | null;
+            createdAt: string;
+            amount: number;
+            paymentProvider?: string | null;
+            transactionReference?: string | null;
+            transactionId?: string | null;
+            status: 'PAID' | 'PENDING' | 'FAILED';
+            tier?: { tierName?: string | null } | null;
+          }>;
+        };
+      }>('/auth/me');
+
+      const payload = response.data.data;
+      setEmail(payload.email ?? member.email);
+      setStatus(payload.active ? 'Active' : 'Inactive');
+
+      const tier = mapTierName(payload.selectedTier?.tierName);
+      if (tier) {
+        setCurrentTier(tier);
+        setSelectedTier((previous) => {
+          if (!payload.active) return tier;
+          return isUpgradeableTier(previous, tier) ? previous : getDefaultUpgradeTier(tier);
+        });
+      }
+
+      const activeSubscription = (payload.subscriptions ?? []).find((item) => item.active) ?? payload.subscriptions?.[0];
+      if (activeSubscription) {
+        setValidFrom(formatDate(activeSubscription.startDate));
+        setExpiryDate(formatDate(activeSubscription.endDate));
+      }
+
+      updateMember({
+        email: payload.email ?? member.email,
+        tier: tier ?? member.tier,
+        status: payload.active ? 'active' : 'inactive',
+        validFrom: activeSubscription ? formatDate(activeSubscription.startDate) : member.validFrom,
+        expiryDate: activeSubscription ? formatDate(activeSubscription.endDate) : member.expiryDate,
+      });
+
+      const mappedPayments: PaymentRecord[] = (payload.membershipPayments ?? []).map((payment) => ({
+        id: String(payment.id),
+        invoiceId: payment.invoiceNumber,
+        date: formatDate(payment.paidAt ?? payment.createdAt),
+        description: `${payment.tier?.tierName ?? 'Membership'} Payment`,
+        method: payment.paymentProvider ?? 'Mobile Money',
+        amount: payment.amount ?? 0,
+        currency: 'RWF',
+        status: mapPaymentStatus(payment.status),
+      }));
+      setPayments(mappedPayments);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Failed to load payment data.');
+    }
+  };
 
   const downloadTextFile = (filename: string, content: string) => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -36,64 +122,28 @@ export const PaymentsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchPaymentSnapshot = async () => {
-      try {
-        setError(null);
-        const response = await api.get<{
-          success: boolean;
-          data: {
-            email: string;
-            active: boolean;
-            selectedTier?: { tierName?: string | null } | null;
-            subscriptions?: Array<{ startDate: string; endDate: string; active: boolean }>;
-            membershipPayments?: Array<{
-              id: number;
-              invoiceNumber: string;
-              paidAt?: string | null;
-              createdAt: string;
-              amount: number;
-              paymentProvider?: string | null;
-              transactionReference?: string | null;
-              transactionId?: string | null;
-              status: 'PAID' | 'PENDING' | 'FAILED';
-              tier?: { tierName?: string | null } | null;
-            }>;
-          };
-        }>('/auth/me');
-
-        const payload = response.data.data;
-        setEmail(payload.email ?? member.email);
-        setStatus(payload.active ? 'Active' : 'Inactive');
-
-        const tier = mapTierName(payload.selectedTier?.tierName);
-        if (tier) setCurrentTier(tier);
-
-        const activeSubscription = (payload.subscriptions ?? []).find((item) => item.active) ?? payload.subscriptions?.[0];
-        if (activeSubscription) {
-          setValidFrom(formatDate(activeSubscription.startDate));
-          setExpiryDate(formatDate(activeSubscription.endDate));
-        }
-
-        const mappedPayments: PaymentRecord[] = (payload.membershipPayments ?? []).map((payment) => ({
-          id: String(payment.id),
-          invoiceId: payment.invoiceNumber,
-          date: formatDate(payment.paidAt ?? payment.createdAt),
-          description: `${payment.tier?.tierName ?? 'Membership'} Payment`,
-          method: payment.paymentProvider ?? 'Mobile Money',
-          amount: payment.amount ?? 0,
-          currency: 'RWF',
-          status: mapPaymentStatus(payment.status),
-        }));
-        setPayments(mappedPayments);
-      } catch (fetchError) {
-        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load payment data.');
-      }
-    };
-
     void fetchPaymentSnapshot();
   }, [member.email]);
 
-  const basePrice = TIER_PRICES[currentTier];
+  useEffect(() => {
+    const existingScript = document.querySelector(`script[src="${IREMBO_INLINE_SCRIPT}"]`);
+    if (existingScript) {
+      setIsSdkReady(Boolean(window.IremboPay));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = IREMBO_INLINE_SCRIPT;
+    script.async = true;
+    script.onload = () => setIsSdkReady(true);
+    script.onerror = () => setIsSdkReady(false);
+    document.body.appendChild(script);
+  }, []);
+
+  const isActiveMember = status === 'Active';
+  const hasUpgradeOptions = currentTier !== 'platinum';
+  const targetTier = isActiveMember ? selectedTier : currentTier;
+  const basePrice = TIER_PRICES[targetTier];
   const renewalPrices = { 1: basePrice, 2: Math.round(basePrice * 1.8) };
   const total = renewalPrices[duration];
 
@@ -101,23 +151,66 @@ export const PaymentsPage: React.FC = () => {
   const paginatedPayments = payments.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const handleRenew = async () => {
-    if (!accountIdentifier.trim()) {
-      setError('Please enter mobile money number before proceeding to payment.');
+    if (!window.IremboPay) {
+      setError('IremboPay secure checkout is not ready yet. Please try again.');
+      return;
+    }
+    if (isActiveMember && !hasUpgradeOptions) {
+      setError('You are already on the highest tier. There is no higher plan available to upgrade to.');
+      return;
+    }
+    if (isActiveMember && !isUpgradeableTier(selectedTier, currentTier)) {
+      setError('Your current plan is still active. Please choose a higher tier to upgrade.');
       return;
     }
 
     try {
       setError(null);
+      setSuccessMessage(null);
       setProcessingRenewal(true);
-      await initiatePaymentApi({
+      const response = await createInlinePaymentInvoice({
         email,
-        accountIdentifier: accountIdentifier.trim(),
-        carrier,
-        membershipType: tierLabel(currentTier),
+        membershipType: tierLabel(targetTier),
+        durationYears: duration,
       });
+
+      const invoiceNumber = response.invoiceNumber ?? response.data?.data?.invoiceNumber ?? null;
+      if (!invoiceNumber) {
+        throw new Error('Unable to create renewal invoice. Please try again.');
+      }
+
+      window.IremboPay.initiate({
+        publicKey: IREMBO_PUBLIC_KEY,
+        invoiceNumber,
+        locale: window.IremboPay.locale.EN,
+        callback: async (err) => {
+          if (err) {
+            setError('Payment failed or was cancelled. Please try again.');
+            setProcessingRenewal(false);
+            return;
+          }
+
+          try {
+            const activationResponse = await activateInlinePayment(invoiceNumber);
+            setSuccessMessage(
+              activationResponse.message ||
+                (isActiveMember ? 'Membership upgrade completed successfully.' : 'Renewal completed successfully.'),
+            );
+            await fetchPaymentSnapshot();
+          } catch (activationError) {
+            setError(
+              activationError instanceof Error
+                ? activationError.message
+                : 'Payment succeeded, but renewal activation failed. Please contact support.',
+            );
+          } finally {
+            setProcessingRenewal(false);
+          }
+        },
+      });
+      return;
     } catch (renewError) {
       setError(renewError instanceof Error ? renewError.message : 'Failed to initiate payment.');
-    } finally {
       setProcessingRenewal(false);
     }
   };
@@ -168,6 +261,11 @@ export const PaymentsPage: React.FC = () => {
         {error ? (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
+          </div>
+        ) : null}
+        {successMessage ? (
+          <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+            {successMessage}
           </div>
         ) : null}
 
@@ -224,12 +322,62 @@ export const PaymentsPage: React.FC = () => {
 
           <section className="rounded-sm border border-gray-200 bg-white p-4 shadow-[0_1px_6px_rgba(0,0,0,0.05)]">
             <div className="mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">Renew Membership</h3>
-              <p className="mt-1 text-xs font-semibold text-gray-400">Select a plan to extend your {TIER_LABELS[currentTier]} Membership.</p>
+              <h3 className="text-sm font-semibold text-gray-900">{isActiveMember ? 'Upgrade Membership' : 'Renew Membership'}</h3>
+              <p className="mt-1 text-xs font-semibold text-gray-400">
+                {isActiveMember
+                  ? `Your ${TIER_LABELS[currentTier]} plan is active. Choose a higher tier to upgrade.`
+                  : `Select a duration to extend your ${TIER_LABELS[currentTier]} membership.`}
+              </p>
             </div>
 
+            {isActiveMember ? (
+              <div className="border-t border-gray-100 pt-4">
+                <p className="mb-3 text-xs font-semibold text-gray-900">Select Upgrade Plan</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {(['bronze', 'silver', 'gold', 'platinum'] as MembershipTier[]).map((tier) => {
+                    const disabled = !isUpgradeableTier(tier, currentTier);
+                    const selected = selectedTier === tier;
+
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => {
+                          if (!disabled) setSelectedTier(tier);
+                        }}
+                        disabled={disabled}
+                        className={[
+                          'rounded-sm border px-3.5 py-3 text-left transition-all',
+                          disabled ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300' : '',
+                          selected && !disabled ? 'border-[#EAB308] bg-[#FFF8E6]' : '',
+                          !selected && !disabled ? 'border-gray-200 hover:border-gray-300 bg-white' : '',
+                        ].join(' ')}
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900">{tierLabel(tier)}</span>
+                          {selected && !disabled ? (
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[#EAB308] bg-[#EAB308] text-[10px] text-white">
+                              ✓
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs font-semibold text-gray-400">
+                          {disabled ? (tier === currentTier ? 'Current active tier' : 'Downgrade unavailable here') : 'Available upgrade'}
+                        </p>
+                        <p className="mt-3 text-lg font-bold uppercase text-gray-900">
+                          rwf {TIER_PRICES[tier].toLocaleString()}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <div className="border-t border-gray-100 pt-4">
-              <p className="mb-3 text-xs font-semibold text-gray-900">Select Duration</p>
+              <p className="mb-3 text-xs font-semibold text-gray-900">
+                {isActiveMember ? 'Select Upgrade Duration' : 'Select Duration'}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
@@ -240,7 +388,7 @@ export const PaymentsPage: React.FC = () => {
                   ].join(' ')}
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">1 Year Renewal</span>
+                    <span className="text-sm font-semibold text-gray-900">1 Year {isActiveMember ? 'Upgrade' : 'Renewal'}</span>
                     {duration === 1 && (
                       <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[#EAB308] bg-[#EAB308] text-[10px] text-white">
                         ✓
@@ -262,7 +410,7 @@ export const PaymentsPage: React.FC = () => {
                   ].join(' ')}
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">2 Year Renewal</span>
+                    <span className="text-sm font-semibold text-gray-900">2 Year {isActiveMember ? 'Upgrade' : 'Renewal'}</span>
                     {duration === 2 && (
                       <span className="flex h-4 w-4 items-center justify-center rounded-full border border-[#EAB308] bg-[#EAB308] text-[10px] text-white">
                         ✓
@@ -278,21 +426,10 @@ export const PaymentsPage: React.FC = () => {
             </div>
 
             <div className="mt-5 border-t border-gray-100 pt-5">
-              <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <input
-                  value={accountIdentifier}
-                  onChange={(event) => setAccountIdentifier(event.target.value)}
-                  placeholder="Mobile money number"
-                  className="rounded-sm border border-gray-200 px-3 py-2 text-xs"
-                />
-                <select
-                  value={carrier}
-                  onChange={(event) => setCarrier(event.target.value as MobileMoneyCarrier)}
-                  className="rounded-sm border border-gray-200 px-3 py-2 text-xs bg-white"
-                >
-                  <option value="MTN">MTN</option>
-                  <option value="AIRTEL">AIRTEL</option>
-                </select>
+              <div className="mb-3 rounded-sm border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-500">
+                {isActiveMember
+                  ? 'Upgrade checkout is completed through the IremboPay secure widget. Payment method details are selected there.'
+                  : 'Renewal checkout is completed through the IremboPay secure widget. Payment method details are selected there.'}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-400">Total Due Today</span>
@@ -301,10 +438,10 @@ export const PaymentsPage: React.FC = () => {
 
               <button
                 onClick={handleRenew}
-                disabled={processingRenewal}
+                disabled={processingRenewal || !isSdkReady || (isActiveMember && !hasUpgradeOptions)}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-sm bg-[#EAB308] px-4 py-2.5 text-sm font-semibold text-black transition-all hover:bg-[#d49e00] disabled:opacity-60"
               >
-                {processingRenewal ? 'Processing...' : 'Proceed to Payment'}
+                {processingRenewal ? 'Processing...' : isActiveMember ? 'Proceed to Upgrade' : 'Proceed to Payment'}
                 {!processingRenewal && (
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
@@ -461,4 +598,17 @@ function mapPaymentStatus(value: 'PAID' | 'PENDING' | 'FAILED'): PaymentRecord['
 
 function tierLabel(tier: MembershipTier): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function tierRank(tier: MembershipTier): number {
+  return ['bronze', 'silver', 'gold', 'platinum'].indexOf(tier);
+}
+
+function isUpgradeableTier(candidate: MembershipTier, current: MembershipTier): boolean {
+  return tierRank(candidate) > tierRank(current);
+}
+
+function getDefaultUpgradeTier(current: MembershipTier): MembershipTier {
+  const orderedTiers: MembershipTier[] = ['bronze', 'silver', 'gold', 'platinum'];
+  return orderedTiers.find((tier) => isUpgradeableTier(tier, current)) ?? current;
 }

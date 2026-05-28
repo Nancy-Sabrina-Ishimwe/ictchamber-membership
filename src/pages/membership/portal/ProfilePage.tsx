@@ -210,6 +210,9 @@ export const ProfilePage: React.FC = () => {
   const [contactError, setContactError] = useState<string | null>(null);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
     fullName: '',
     email: '',
@@ -228,6 +231,9 @@ export const ProfilePage: React.FC = () => {
             address?: string | null;
             email: string;
             tin?: string | null;
+            primaryPhone?: string | null;
+            website?: string | null;
+            description?: string | null;
             logoUrl?: string | null;
             contacts?: Array<{
               id: number;
@@ -245,6 +251,9 @@ export const ProfilePage: React.FC = () => {
           ...prev,
           companyName: payload.companyName ?? prev.companyName,
           address: payload.address ?? prev.address,
+          phone: payload.primaryPhone ?? prev.phone,
+          website: payload.website ?? prev.website,
+          description: payload.description ?? prev.description,
         }));
 
         updateMember({
@@ -253,6 +262,9 @@ export const ProfilePage: React.FC = () => {
           address: payload.address ?? member.address,
           tinNumber: payload.tin ?? member.tinNumber,
           logoUrl: payload.logoUrl ?? undefined,
+          phone: payload.primaryPhone ?? member.phone,
+          website: payload.website ?? member.website,
+          description: payload.description ?? member.description,
         });
 
         updateContacts(
@@ -286,25 +298,43 @@ export const ProfilePage: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
+      const formData = new FormData();
+      formData.append('companyName', form.companyName.trim());
+      formData.append('address', form.address.trim());
+      formData.append('primaryPhone', form.phone.trim());
+      formData.append('website', form.website.trim());
+      formData.append('description', form.description.trim());
+      if (profileImageFile) {
+        formData.append('companyProfile', profileImageFile);
+      }
+
       const response = await api.patch<{
         success: boolean;
         data: {
           companyName: string;
           address?: string | null;
+          primaryPhone?: string | null;
+          website?: string | null;
+          description?: string | null;
           tin?: string | null;
+          logoUrl?: string | null;
         };
-      }>('/auth/me', {
-        companyName: form.companyName.trim(),
-        address: form.address.trim(),
-      });
+      }>('/auth/me', formData);
 
       const payload = response.data.data;
       updateMember({
         companyName: payload.companyName ?? form.companyName,
         address: payload.address ?? form.address,
+        phone: payload.primaryPhone ?? form.phone,
+        website: payload.website ?? form.website,
+        description: payload.description ?? form.description,
+        logoUrl: payload.logoUrl ?? member.logoUrl,
         tinNumber: payload.tin ?? member.tinNumber,
       });
 
+      setProfileImageFile(null);
+      setProfileImagePreview(null);
+      setIsEditingProfile(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (saveError) {
@@ -376,6 +406,24 @@ export const ProfilePage: React.FC = () => {
     setConfirmPassword('');
     setPasswordMessage(null);
     setError(null);
+    setProfileImageFile(null);
+    setProfileImagePreview(null);
+    setIsEditingProfile(false);
+  };
+
+  const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setProfileImageFile(file);
+    if (!file) {
+      setProfileImagePreview(null);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setProfileImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteContact = async (id: string) => {
@@ -393,11 +441,12 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  // const openAddContactModal = () => {
-  //   setContactError(null);
-  //   setContactForm({ fullName: '', email: '', phone: '', role: '' });
-  //   setShowAddContactModal(true);
-  // };
+  const openAddContactModal = () => {
+    setContactError(null);
+    setEditingContact(null);
+    setContactForm({ fullName: '', email: '', phone: '', role: '' });
+    setShowAddContactModal(true);
+  };
 
   const openEditContactModal = (contact: ContactPerson) => {
     setContactError(null);
@@ -523,6 +572,13 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-sm text-gray-400">This information will be displayed in the member directory.</p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsEditingProfile((prev) => !prev)}
+              className="rounded-sm border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300"
+            >
+              {isEditingProfile ? 'Stop Editing' : 'Edit'}
+            </button>
             {/* <div className="text-left sm:text-right">
               <p className="text-xs text-gray-900">Membership ID</p>
               <p className="mt-1 text-xl font-normal leading-none text-gray-900">{member.membershipId}</p>
@@ -532,19 +588,25 @@ export const ProfilePage: React.FC = () => {
           <div className="px-4 sm:px-5 py-5">
             <div className="flex flex-col sm:flex-row items-start gap-6">
               <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                <p className="text-xs font-semibold text-gray-400">Company Logo</p>
+                <p className="text-xs font-semibold text-gray-400">Company Profile</p>
                 <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-200 bg-gray-50">
-                  {member.logoUrl ? (
+                  {(profileImagePreview || member.logoUrl) ? (
                     <img
-                      src={member.logoUrl}
-                      alt={member.companyName ? `${member.companyName} logo` : 'Company logo'}
+                      src={profileImagePreview ?? member.logoUrl}
+                      alt={member.companyName ? `${member.companyName} company profile` : 'Company profile'}
                       className="h-full w-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <span className="px-2 text-center text-[10px] leading-snug text-gray-400">No logo uploaded</span>
+                    <span className="px-2 text-center text-[10px] leading-snug text-gray-400">No company profile image</span>
                   )}
                 </div>
+                {isEditingProfile ? (
+                  <label className="cursor-pointer rounded-sm border border-gray-200 px-2.5 py-1 text-[11px] text-gray-600 hover:bg-gray-50">
+                    Change Image
+                    <input type="file" accept="image/*" className="hidden" onChange={handleProfileImageChange} />
+                  </label>
+                ) : null}
               </div>
 
               <div className="flex-1 pt-1">
@@ -554,6 +616,7 @@ export const ProfilePage: React.FC = () => {
                     required
                     value={form.companyName}
                     onChange={set('companyName')}
+                    readOnly={!isEditingProfile}
                   />
                   <PortalInput
                     label="TIN (Tax Identification Number)"
@@ -579,8 +642,9 @@ export const ProfilePage: React.FC = () => {
               <PortalInput label="Primary Phone" value={form.phone} onChange={set('phone')} />
             </div>*/}
 
-            <div className="mt-4">
-              <PortalInput label="Physical Address" value={form.address} onChange={set('address')} />
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <PortalInput label="Physical Address" value={form.address} onChange={set('address')} readOnly={!isEditingProfile} />
+              <PortalInput label="Primary Phone" value={form.phone} onChange={set('phone')} readOnly={!isEditingProfile} />
             </div>
           </div>
         </section>
@@ -598,7 +662,7 @@ export const ProfilePage: React.FC = () => {
                 <p className="text-xs text-gray-400">Manage founders, CEOs, and designated representatives.</p>
               </div>
             </div>
-            {/* <button
+            <button
               onClick={openAddContactModal}
               className="flex items-center gap-2 rounded-sm border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-900 transition-colors hover:border-gray-300"
             >
@@ -606,7 +670,7 @@ export const ProfilePage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
               </svg>
               Add Contact
-            </button> */}
+            </button>
           </div>
 
           <div className="space-y-3 px-4 sm:px-5 py-5">
@@ -725,7 +789,7 @@ export const ProfilePage: React.FC = () => {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !isEditingProfile}
             className="flex items-center gap-2 rounded-sm bg-[#E5AB00] px-5 py-2 text-sm font-semibold text-white transition-all hover:bg-[#d49e00] disabled:opacity-60 active:scale-[0.98]"
           >
             {saving ? (

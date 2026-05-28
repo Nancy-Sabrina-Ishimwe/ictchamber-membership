@@ -226,7 +226,7 @@ export default function Renewals() {
             <>
               <div className="divide-y divide-gray-100 md:hidden">
                 {paginatedData.map((item) => (
-                  <div key={item.id} className="space-y-2.5 p-3 transition-colors hover:bg-gray-50/60">
+                  <div key={`${item.id}-${item.expiryDate}`} className="space-y-2.5 p-3 transition-colors hover:bg-gray-50/60">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -264,7 +264,7 @@ export default function Renewals() {
               <div className="hidden md:block">
                 {paginatedData.map((item) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}-${item.expiryDate}`}
                     className="grid grid-cols-3 items-start gap-2.5 border-b border-gray-100 px-3 py-3 transition-colors hover:bg-gray-50/60 lg:items-center sm:px-4"
                   >
                     <div className="flex min-w-0 items-center gap-3">

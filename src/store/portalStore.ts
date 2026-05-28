@@ -11,6 +11,7 @@ import {
 
 interface PortalState {
   member: Member;
+  hydratedMemberId: string | null;
   contacts: ContactPerson[];
   requests: typeof mockRequests;
   activity: typeof mockActivity;
@@ -21,6 +22,7 @@ interface PortalState {
 
   // Actions
   updateMember: (data: Partial<Member>) => void;
+  setHydratedMemberId: (memberId: string | null) => void;
   updateContacts: (contacts: ContactPerson[]) => void;
   addRequest: (req: ServiceRequest) => void;
   setShowNewRequestModal: (show: boolean) => void;
@@ -29,6 +31,7 @@ interface PortalState {
 
 export const usePortalStore = create<PortalState>((set) => ({
   member: mockMember,
+  hydratedMemberId: null,
   contacts: mockContacts,
   requests: mockRequests,
   activity: mockActivity,
@@ -39,6 +42,8 @@ export const usePortalStore = create<PortalState>((set) => ({
 
   updateMember: (data) =>
     set((state) => ({ member: { ...state.member, ...data } })),
+
+  setHydratedMemberId: (memberId) => set({ hydratedMemberId: memberId }),
 
   updateContacts: (contacts) => set({ contacts }),
 

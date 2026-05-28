@@ -46,6 +46,12 @@ export const BenefitsPage: React.FC = () => {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    setCurrentTier(member.tier);
+    setExpiryDate(member.expiryDate);
+    setActive(member.status === 'active');
+  }, [member.tier, member.expiryDate, member.status]);
+
+  useEffect(() => {
     const fetchMembershipSnapshot = async () => {
       try {
         const response = await api.get<{

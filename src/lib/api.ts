@@ -8,11 +8,17 @@ const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 // ─── Request interceptor: attach JWT if present ───────────────────────────────
 api.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    // Let Axios/browser set multipart boundary automatically for file uploads.
+    delete config.headers['Content-Type'];
+  } else {
+    config.headers['Content-Type'] = 'application/json';
+  }
+
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

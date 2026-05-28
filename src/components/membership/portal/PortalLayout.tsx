@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, LogOut, Menu, X } from 'lucide-react';
 import { usePortalStore } from '../../../store/portalStore';
@@ -6,6 +6,7 @@ import { TIER_LABELS } from '../../../types/portal';
 import { useAuth } from '../../../context/AuthContext';
 import { ROUTES } from '../../../constants/app';
 import { PORTAL_NAV_ITEMS } from '../../../constants/navigation';
+import { api } from '../../../lib/api';
 import type { NavItem } from '../../../constants/navigation';
 import type { MembershipTier } from '../../../types/portal';
 
@@ -23,16 +24,26 @@ const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
 
   const displayName = user?.name ?? member.representedBy;
   const companyName = user?.companyName ?? member.companyName;
-  const sidebarTier = mapTier(user?.tier);
+  const sidebarTier = member.tier ?? mapTier(user?.tier);
+  const companyProfileImage = member.logoUrl;
 
   return (
     <aside className="w-[250px] h-screen flex-shrink-0 bg-[#000000] overflow-hidden flex flex-col">
       {/* Avatar + company */}
       <div className="px-5 pt-5 pb-5 flex flex-col items-center text-center border-b border-white/10">
-        <div className="w-14 h-14 rounded-full bg-[#EF9F27] mb-3 flex items-center justify-center">
-          <span className="text-black font-black text-xl">
-            {(companyName ?? displayName ?? 'M')[0].toUpperCase()}
-          </span>
+        <div className="w-14 h-14 rounded-full bg-[#EF9F27] mb-3 flex items-center justify-center overflow-hidden">
+          {companyProfileImage ? (
+            <img
+              src={companyProfileImage}
+              alt={companyName ? `${companyName} company profile` : 'Company profile'}
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <span className="text-black font-black text-xl">
+              {(companyName ?? displayName ?? 'M')[0].toUpperCase()}
+            </span>
+          )}
         </div>
         <p className="text-white font-bold text-sm leading-tight">{companyName}</p>
         <p className="text-gray-400 text-xs mt-0.5">
@@ -159,6 +170,60 @@ interface PortalLayoutProps {
 
 export const PortalLayout: React.FC<PortalLayoutProps> = ({ title, children }) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { user } = useAuth();
+  const { hydratedMemberId, updateMember, setHydratedMemberId } = usePortalStore();
+
+  useEffect(() => {
+    if (!user || user.role !== 'member' || hydratedMemberId === user.id) {
+      return;
+    }
+
+    const hydratePortalMember = async () => {
+      try {
+        const response = await api.get<{
+          success: boolean;
+          data: {
+            id: number;
+            companyName?: string;
+            email?: string;
+            address?: string | null;
+            tin?: string | null;
+            primaryPhone?: string | null;
+            website?: string | null;
+            description?: string | null;
+            logoUrl?: string | null;
+            active?: boolean;
+            selectedTier?: { tierName?: string | null } | null;
+            memberships?: Array<{ expiresAt?: string | null; createdAt?: string | null }>;
+          };
+        }>('/auth/me');
+
+        const payload = response.data.data;
+        const currentMembership = payload.memberships?.[0];
+
+        updateMember({
+          id: String(payload.id ?? user.id),
+          companyName: payload.companyName ?? user.companyName ?? '',
+          email: payload.email ?? '',
+          address: payload.address ?? '',
+          tinNumber: payload.tin ?? '',
+          phone: payload.primaryPhone ?? '',
+          website: payload.website ?? '',
+          description: payload.description ?? '',
+          logoUrl: payload.logoUrl ?? undefined,
+          tier: mapTier(payload.selectedTier?.tierName ?? undefined) ?? undefined,
+          status: payload.active ? 'active' : 'inactive',
+          validFrom: currentMembership?.createdAt ?? '',
+          expiryDate: currentMembership?.expiresAt ?? '',
+        });
+        setHydratedMemberId(String(payload.id ?? user.id));
+      } catch {
+        // Keep existing shell visible; profile page has fuller error handling.
+      }
+    };
+
+    void hydratePortalMember();
+  }, [hydratedMemberId, setHydratedMemberId, updateMember, user]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

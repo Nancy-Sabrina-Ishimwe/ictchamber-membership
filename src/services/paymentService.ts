@@ -12,17 +12,22 @@ export interface InitiatePaymentPayload {
   email: string;
   /** Tier label as stored in the DB, e.g. "Gold" */
   membershipType: string;
+  /** Renewal duration in years */
+  durationYears?: 1 | 2;
 }
 
 export interface InitiatePaymentResponse {
   success: boolean;
   message: string;
+  invoiceNumber?: string;
+  durationYears?: number;
   data?: Record<string, unknown>;
 }
 
 export interface CreateInlineInvoicePayload {
   email: string;
   membershipType: string;
+  durationYears?: 1 | 2;
 }
 
 export interface CreateInlineInvoiceResponse {
