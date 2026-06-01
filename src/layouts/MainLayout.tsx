@@ -41,9 +41,25 @@ export default function MainLayout({ children }: Props) {
       case ROUTES.ADMIN_REPORTS_SERVICE_USAGE: return 'Reports';
       case ROUTES.ADMIN_SETTINGS:              return 'Settings';
       case ROUTES.ADMIN_SUPPORT:               return 'Support';
-      default:                                 return 'Dashboard';
+      default:
+        if (location.pathname.startsWith(ROUTES.ADMIN_EVENT_ATTENDANCE)) return 'Event check-in';
+        return 'Dashboard';
     }
   };
+
+  const navMatchesPath = (pathname: string, path: string) =>
+    path === ROUTES.ADMIN
+      ? pathname === path
+      : pathname === path || pathname.startsWith(`${path}/`);
+
+  const activeNavPath = [...ADMIN_NAV_ITEMS, ...ADMIN_BOTTOM_NAV_ITEMS].reduce<string | null>(
+    (best, item) => {
+      if (!navMatchesPath(location.pathname, item.path)) return best;
+      if (!best || item.path.length > best.length) return item.path;
+      return best;
+    },
+    null,
+  );
 
   const SidebarContent = () => (
     <div className="flex min-h-0 h-full flex-col">
@@ -58,7 +74,12 @@ export default function MainLayout({ children }: Props) {
         <p className="mb-3 text-xs text-gray-500">MAIN MENU</p>
         <div className="space-y-2">
           {ADMIN_NAV_ITEMS.map((item) => (
-            <MenuItem key={item.path} item={item} onClick={() => setMobileSidebarOpen(false)} />
+            <MenuItem
+              key={item.path}
+              item={item}
+              isActive={activeNavPath === item.path}
+              onClick={() => setMobileSidebarOpen(false)}
+            />
           ))}
         </div>
       </nav>
@@ -66,7 +87,12 @@ export default function MainLayout({ children }: Props) {
       {/* Bottom nav + logout */}
       <div className="space-y-2 border-t border-gray-800 p-4 text-sm">
         {ADMIN_BOTTOM_NAV_ITEMS.map((item) => (
-          <MenuItem key={item.path} item={item} onClick={() => setMobileSidebarOpen(false)} />
+          <MenuItem
+            key={item.path}
+            item={item}
+            isActive={activeNavPath === item.path}
+            onClick={() => setMobileSidebarOpen(false)}
+          />
         ))}
         <button
           type="button"
@@ -165,13 +191,16 @@ export default function MainLayout({ children }: Props) {
   );
 }
 
-function MenuItem({ item, onClick }: { item: NavItem; onClick?: () => void }) {
-  const location = useLocation();
+function MenuItem({
+  item,
+  isActive,
+  onClick,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onClick?: () => void;
+}) {
   const { path, label, Icon } = item;
-  const isActive =
-    path === ROUTES.ADMIN
-      ? location.pathname === path
-      : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   return (
     <Link

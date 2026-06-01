@@ -8,11 +8,14 @@ import {
   MapPin,
   QrCode,
   RefreshCw,
+  LayoutGrid,
   Search,
+  Table2,
   UserCheck,
   Users,
   X,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -26,6 +29,8 @@ import {
   type AttendeeType,
 } from '../types/eventAttendance';
 
+type PickerViewMode = 'table' | 'grid';
+
 export default function EventAttendanceAdminPage() {
   const { eventId } = useParams<{ eventId?: string }>();
   const navigate = useNavigate();
@@ -34,6 +39,7 @@ export default function EventAttendanceAdminPage() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerViewMode, setPickerViewMode] = useState<PickerViewMode>('table');
 
   const loadEvents = useCallback(async () => {
     try {
@@ -123,15 +129,31 @@ export default function EventAttendanceAdminPage() {
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="relative max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            value={pickerSearch}
-            onChange={(e) => setPickerSearch(e.target.value)}
-            placeholder="Search events…"
-            className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#EF9F27] focus:ring-2 focus:ring-[#EF9F27]/20"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              placeholder="Search events…"
+              className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#EF9F27] focus:ring-2 focus:ring-[#EF9F27]/20"
+            />
+          </div>
+          <div className="inline-flex w-full sm:w-auto items-center rounded-lg border border-gray-200 bg-gray-50 p-1">
+            <ViewModeButton
+              active={pickerViewMode === 'table'}
+              icon={<Table2 size={14} />}
+              label="Table"
+              onClick={() => setPickerViewMode('table')}
+            />
+            <ViewModeButton
+              active={pickerViewMode === 'grid'}
+              icon={<LayoutGrid size={14} />}
+              label="Grid"
+              onClick={() => setPickerViewMode('grid')}
+            />
+          </div>
         </div>
       </div>
 
@@ -145,6 +167,11 @@ export default function EventAttendanceAdminPage() {
           <p className="mt-3 text-sm font-medium text-gray-900">No events found</p>
           <p className="mt-1 text-sm text-gray-500">Create an event first, then return here to set up check-in.</p>
         </div>
+      ) : pickerViewMode === 'table' ? (
+        <EventsPickerTable
+          events={filteredEvents}
+          onOpen={(id) => navigate(ROUTES.ADMIN_EVENT_ATTENDANCE_DETAIL(id))}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredEvents.map((event) => (
@@ -611,6 +638,98 @@ function AttendanceDashboard({
             document.body,
           )
         : null}
+    </div>
+  );
+}
+
+function ViewModeButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
+        active
+          ? 'bg-white font-semibold text-gray-900 shadow-sm'
+          : 'text-gray-600 hover:text-gray-900'
+      }`}
+      aria-pressed={active}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function EventsPickerTable({
+  events,
+  onOpen,
+}: {
+  events: AttendanceEventSummary[];
+  onOpen: (eventId: string) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <tr>
+              <th className="px-4 py-3">Event</th>
+              <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3">Time</th>
+              <th className="px-4 py-3">Location</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Sign-ins</th>
+              <th className="px-4 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {events.map((event) => (
+              <tr
+                key={event.id}
+                onClick={() => onOpen(event.id)}
+                className="cursor-pointer transition-colors hover:bg-[#EF9F27]/5"
+              >
+                <td className="px-4 py-3 font-medium text-gray-900">{event.title}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                  {formatEventDate(event.date)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-600">{event.time}</td>
+                <td className="max-w-[200px] truncate px-4 py-3 text-gray-600">{event.location}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      event.status === 'Upcoming'
+                        ? 'bg-amber-50 text-amber-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {event.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <span className="inline-flex items-center justify-center gap-1 rounded-full bg-[#0F2A56]/5 px-2.5 py-0.5 text-xs font-semibold text-[#0F2A56]">
+                    <Users size={12} />
+                    {event.attendanceCount ?? 0}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <span className="text-xs font-semibold text-[#EF9F27]">Manage →</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
