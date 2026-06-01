@@ -1,5 +1,7 @@
 // ─── Brand / Logo ─────────────────────────────────────────────────────────────
 export const APP_LOGO_SRC = '/ict_chamber_logo-removebg-preview.png';
+/** Dark wordmark for light backgrounds (public pages). */
+export const APP_LOGO_DARK_SRC = '/ict%20chamber%20logo.png';
 export const APP_LOGO_ALT = 'Rwanda ICT Chamber';
 export const APP_NAME = 'Rwanda ICT Chamber';
 export const APP_SUBTITLE = 'Membership Portal';
