@@ -476,7 +476,7 @@ export const RequestsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Priority *</label>
+              <label className="text-xs text-gray-500">Urgency Level *</label>
               <select
                 value={form.priorityLevel}
                 onChange={(event) => setForm((prev) => ({ ...prev, priorityLevel: event.target.value }))}
@@ -728,7 +728,7 @@ export const RequestsPage: React.FC = () => {
               <p><span className="text-gray-500">Assigned Officer:</span> <span className="font-medium text-gray-900">{selectedRequest.assignedOfficer}</span></p>
               <p><span className="text-gray-500">Preferred Contact:</span> <span className="font-medium text-gray-900">{selectedRequest.preferredContactMethod}</span></p>
               <p><span className="text-gray-500">Preferred Delivery:</span> <span className="font-medium text-gray-900">{selectedRequest.preferredDeliveryDate || '-'}</span></p>
-              <p><span className="text-gray-500">Priority:</span> <span className="font-medium text-gray-900">{selectedRequest.priorityLevel}</span></p>
+              <p><span className="text-gray-500">Urgency Level:</span> <span className="font-medium text-gray-900">{selectedRequest.priorityLevel}</span></p>
               {selectedRequest.detailedDescription ? (
                 <div>
                   <p className="text-gray-500">Description:</p>
@@ -835,7 +835,7 @@ export const RequestsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Priority *</label>
+                <label className="text-xs text-gray-500">Urgency Level *</label>
                 <select
                   value={editForm.priorityLevel}
                   onChange={(event) => setEditForm((prev) => ({ ...prev, priorityLevel: event.target.value }))}

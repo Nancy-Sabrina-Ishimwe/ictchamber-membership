@@ -546,7 +546,7 @@ function ServiceRequestDetailModal({ item, onClose }: { item: ServiceRequestRow;
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={item.status} />
             <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-              {item.priority} priority
+              {item.priority} Urgency
             </span>
           </div>
           <Field label="Title" value={item.title} />

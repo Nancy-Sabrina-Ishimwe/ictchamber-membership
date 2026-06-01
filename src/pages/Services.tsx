@@ -341,7 +341,7 @@ export default function DeliveredServices() {
                   <th className="p-3 text-left">COMPANY</th>
                   <th className="p-3 text-left">CATEGORY</th>
                   <th className="p-3 text-left">DELIVERY DATE</th>
-                  <th className="p-3 text-left">PRIORITY</th>
+                  <th className="p-3 text-left">URGENCY</th>
                   <th className="p-3 text-left">ACTIONS</th>
                 </tr>
               </thead>
