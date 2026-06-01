@@ -6,7 +6,6 @@ import {
   Download,
   ExternalLink,
   MapPin,
-  Printer,
   QrCode,
   RefreshCw,
   LayoutGrid,
@@ -29,7 +28,7 @@ import {
   type AttendanceRecord,
   type AttendeeType,
 } from '../types/eventAttendance';
-import { downloadSvgAsPng, printQrPoster, svgToPngDataUrl } from '../utils/qrShare';
+import { downloadSvgAsPng } from '../utils/qrShare';
 
 type PickerViewMode = 'table' | 'grid';
 
@@ -340,27 +339,6 @@ function AttendanceDashboard({
     showQrActionMessage('QR downloaded');
   };
 
-  const printQr = async () => {
-    const svg = getQrSvg();
-    if (!svg || !attendanceUrl) {
-      showQrActionMessage('Generate a QR code first');
-      return;
-    }
-    try {
-      const qrPngDataUrl = await svgToPngDataUrl(svg);
-      printQrPoster({
-        eventTitle: title,
-        eventDate: displayDate ? formatEventDate(displayDate) : undefined,
-        eventTime: displayTime,
-        location: displayLocation,
-        attendanceUrl,
-        qrPngDataUrl,
-      });
-    } catch (printError) {
-      setError(printError instanceof Error ? printError.message : 'Could not open print window');
-    }
-  };
-
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
     return attendances.filter((row) => {
@@ -499,24 +477,14 @@ function AttendanceDashboard({
               {qrActionMessage ? (
                 <p className="mt-2 text-center text-[11px] font-medium text-[#0F2A56]">{qrActionMessage}</p>
               ) : null}
-              <div className="mt-4 grid w-full grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={downloadQr}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-medium text-gray-800 hover:bg-gray-100"
-                >
-                  <Download size={14} />
-                  Download QR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void printQr()}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-medium text-gray-800 hover:bg-gray-100"
-                >
-                  <Printer size={14} />
-                  Print QR
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={downloadQr}
+                className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-medium text-gray-800 hover:bg-gray-100"
+              >
+                <Download size={14} />
+                Download QR
+              </button>
               <div className="mt-2 flex w-full flex-col gap-2">
                 <button
                   type="button"
