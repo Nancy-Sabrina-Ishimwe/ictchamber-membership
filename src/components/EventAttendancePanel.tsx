@@ -1,5 +1,6 @@
-import { Copy, QrCode, RefreshCw, Users } from 'lucide-react';
+import { Copy, QrCode, RefreshCw, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../lib/api';
 
@@ -12,6 +13,7 @@ type AttendanceRecord = {
   jobTitle: string;
   department: string | null;
   attendeeType: 'MEMBER' | 'PARTNER' | 'GUEST';
+  signatureData: string | null;
   signedInAt: string;
 };
 
@@ -19,12 +21,6 @@ type Props = {
   eventId: string;
   initialAttendanceUrl?: string | null;
   initialCount?: number;
-};
-
-const TYPE_LABELS: Record<AttendanceRecord['attendeeType'], string> = {
-  MEMBER: 'Member',
-  PARTNER: 'Partner',
-  GUEST: 'Guest',
 };
 
 export function EventAttendancePanel({ eventId, initialAttendanceUrl, initialCount = 0 }: Props) {
@@ -35,6 +31,7 @@ export function EventAttendancePanel({ eventId, initialAttendanceUrl, initialCou
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<AttendanceRecord | null>(null);
 
   const loadAttendances = useCallback(async () => {
     try {
@@ -95,86 +92,140 @@ export function EventAttendancePanel({ eventId, initialAttendanceUrl, initialCou
   };
 
   return (
-    <div className="space-y-4 border-t border-gray-100 pt-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
-          <QrCode size={14} />
-          Attendance check-in
-        </p>
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">
-          <Users size={11} />
-          {count} signed in
-        </span>
+    <>
+      <div className="space-y-4 border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1.5">
+            <QrCode size={14} />
+            Attendance check-in
+          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">
+            <Users size={11} />
+            {count} signed in
+          </span>
+        </div>
+
+        {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+        {attendanceUrl ? (
+          <div className="flex flex-col items-center gap-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <QRCodeSVG value={attendanceUrl} size={160} level="M" includeMargin />
+            <p className="text-center text-[11px] text-gray-600 break-all">{attendanceUrl}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              >
+                <Copy size={12} />
+                {copyMessage ?? 'Copy link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void generateLink()}
+                disabled={isGenerating}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
+                New QR link
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-500 text-center max-w-xs">
+              Display this QR at the venue. Attendees scan it to open the sign-in form on their phone.
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void generateLink()}
+            disabled={isGenerating}
+            className="w-full rounded-md bg-[#0F2A56] py-2 text-xs font-medium text-white hover:bg-[#0c2248] disabled:opacity-50"
+          >
+            {isGenerating ? 'Generating…' : 'Generate attendance QR code'}
+          </button>
+        )}
+
+        {isLoading ? (
+          <p className="text-xs text-gray-500">Loading sign-ins…</p>
+        ) : attendances.length === 0 ? (
+          <p className="text-xs text-gray-500">No attendance sign-ins yet.</p>
+        ) : (
+          <div className="max-h-56 overflow-y-auto rounded-md border border-gray-200">
+            <table className="min-w-full text-[11px]">
+              <thead className="sticky top-0 bg-gray-50 text-gray-500">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-semibold">Name</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Company</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">Signature</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {attendances.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50/80">
+                    <td className="px-2 py-1.5 text-gray-900">{row.fullName}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{row.companyName}</td>
+                    <td className="px-2 py-1.5">
+                      {row.signatureData ? (
+                        <button
+                          type="button"
+                          onClick={() => setSignaturePreview(row)}
+                          className="block overflow-hidden rounded border border-gray-200 bg-white p-0.5 hover:border-[#EF9F27]"
+                          title="View signature"
+                        >
+                          <img
+                            src={row.signatureData}
+                            alt={`Signature of ${row.fullName}`}
+                            className="h-8 w-16 object-contain"
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
-
-      {attendanceUrl ? (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-gray-200 bg-gray-50 p-4">
-          <QRCodeSVG value={attendanceUrl} size={160} level="M" includeMargin />
-          <p className="text-center text-[11px] text-gray-600 break-all">{attendanceUrl}</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => void copyLink()}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+      {signaturePreview
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4"
+              onClick={() => setSignaturePreview(null)}
             >
-              <Copy size={12} />
-              {copyMessage ?? 'Copy link'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void generateLink()}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RefreshCw size={12} className={isGenerating ? 'animate-spin' : ''} />
-              New QR link
-            </button>
-          </div>
-          <p className="text-[10px] text-gray-500 text-center max-w-xs">
-            Display this QR at the venue. Attendees scan it to open the sign-in form on their phone.
-          </p>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void generateLink()}
-          disabled={isGenerating}
-          className="w-full rounded-md bg-[#0F2A56] py-2 text-xs font-medium text-white hover:bg-[#0c2248] disabled:opacity-50"
-        >
-          {isGenerating ? 'Generating…' : 'Generate attendance QR code'}
-        </button>
-      )}
-
-      {isLoading ? (
-        <p className="text-xs text-gray-500">Loading sign-ins…</p>
-      ) : attendances.length === 0 ? (
-        <p className="text-xs text-gray-500">No attendance sign-ins yet.</p>
-      ) : (
-        <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200">
-          <table className="min-w-full text-[11px]">
-            <thead className="sticky top-0 bg-gray-50 text-gray-500">
-              <tr>
-                <th className="px-2 py-1.5 text-left font-semibold">Name</th>
-                <th className="px-2 py-1.5 text-left font-semibold">Company</th>
-                <th className="px-2 py-1.5 text-left font-semibold">Role</th>
-                <th className="px-2 py-1.5 text-left font-semibold">Type</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {attendances.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-2 py-1.5 text-gray-900">{row.fullName}</td>
-                  <td className="px-2 py-1.5 text-gray-600">{row.companyName}</td>
-                  <td className="px-2 py-1.5 text-gray-600">{row.jobTitle}</td>
-                  <td className="px-2 py-1.5 text-gray-600">{TYPE_LABELS[row.attendeeType]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              <div
+                className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{signaturePreview.fullName}</p>
+                    <p className="text-xs text-gray-500">{signaturePreview.companyName}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignaturePreview(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Close"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                {signaturePreview.signatureData ? (
+                  <img
+                    src={signaturePreview.signatureData}
+                    alt={`Signature of ${signaturePreview.fullName}`}
+                    className="w-full rounded-md border border-gray-200 bg-white object-contain"
+                  />
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

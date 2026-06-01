@@ -11,6 +11,7 @@ import {
   Phone,
   User,
 } from 'lucide-react';
+import { SignaturePad } from '../components/SignaturePad';
 import { api } from '../lib/api';
 import { APP_LOGO_ALT, APP_LOGO_DARK_SRC, ROUTES } from '../constants/app';
 
@@ -53,6 +54,7 @@ export default function EventAttendancePage() {
   const [department, setDepartment] = useState('');
   const [attendeeType, setAttendeeType] = useState<AttendeeType>('MEMBER');
   const [notes, setNotes] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -83,6 +85,11 @@ export default function EventAttendancePage() {
     submitEvent.preventDefault();
     if (!token) return;
 
+    if (!signature) {
+      setError('Please add your signature before submitting.');
+      return;
+    }
+
     try {
       setError(null);
       setIsSubmitting(true);
@@ -95,6 +102,7 @@ export default function EventAttendancePage() {
         department: department.trim() || undefined,
         attendeeType,
         notes: notes.trim() || undefined,
+        signature,
       });
       setSuccessMessage(response.data.message ?? 'Attendance recorded. Thank you!');
     } catch (submitError) {
@@ -302,6 +310,16 @@ export default function EventAttendancePage() {
                         rows={3}
                         className={`${inputBase} resize-none px-4 py-3`}
                         placeholder="Dietary needs, accessibility, or other requests (optional)"
+                      />
+                    </Field>
+                  </FormSection>
+
+                  <FormSection title="Signature">
+                    <Field label="Your signature" required>
+                      <SignaturePad
+                        value={signature}
+                        onChange={setSignature}
+                        disabled={isSubmitting}
                       />
                     </Field>
                   </FormSection>
