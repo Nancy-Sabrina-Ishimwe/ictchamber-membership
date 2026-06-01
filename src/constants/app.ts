@@ -10,6 +10,7 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   FORGOT_PASSWORD: '/forgot-password',
+  EVENT_ATTENDANCE: (token: string) => `/events/attendance/${token}`,
 
   // Admin
   ADMIN: '/admin',

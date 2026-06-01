@@ -32,6 +32,7 @@ import { PaymentsPage } from './pages/membership/portal/PaymentsPage';
 import { ProfilePage } from './pages/membership/portal/ProfilePage';
 import { RequestsPage } from './pages/membership/portal/RequestsPage';
 import { ServiceFeedbackPage } from './pages/membership/ServiceFeedbackPage';
+import EventAttendancePage from './pages/EventAttendancePage';
 import { ROUTES } from './constants/app';
 
 const GlobalModals: React.FC = () => {
@@ -69,6 +70,18 @@ function App() {
             </PublicRoute>
           }
         />
+<<<<<<< Updated upstream
+=======
+        <Route
+          path={ROUTES.FORGOT_PASSWORD}
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
+        <Route path="/events/attendance/:token" element={<EventAttendancePage />} />
+>>>>>>> Stashed changes
 
         {/* ── Admin (requires admin role) ── */}
         <Route
