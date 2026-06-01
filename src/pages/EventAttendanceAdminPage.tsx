@@ -6,6 +6,7 @@ import {
   Download,
   ExternalLink,
   MapPin,
+  Printer,
   QrCode,
   RefreshCw,
   LayoutGrid,
@@ -16,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -28,6 +29,7 @@ import {
   type AttendanceRecord,
   type AttendeeType,
 } from '../types/eventAttendance';
+import { downloadSvgAsPng, printQrPoster, svgToPngDataUrl } from '../utils/qrShare';
 
 type PickerViewMode = 'table' | 'grid';
 
@@ -238,6 +240,8 @@ function AttendanceDashboard({
   const [tableSearch, setTableSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | AttendeeType>('all');
   const [signaturePreview, setSignaturePreview] = useState<AttendanceRecord | null>(null);
+  const [qrActionMessage, setQrActionMessage] = useState<string | null>(null);
+  const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const loadAttendances = useCallback(async () => {
     try {
@@ -313,6 +317,50 @@ function AttendanceDashboard({
     }
   };
 
+  const title = eventSummary?.title ?? eventMeta?.title ?? 'Event';
+  const displayDate = eventSummary?.date ?? eventMeta?.eventDate;
+  const displayTime = eventSummary?.time ?? eventMeta?.eventTime;
+  const displayLocation = eventSummary?.location ?? eventMeta?.location;
+
+  const getQrSvg = () => qrContainerRef.current?.querySelector('svg') ?? null;
+
+  const showQrActionMessage = (message: string) => {
+    setQrActionMessage(message);
+    setTimeout(() => setQrActionMessage(null), 2500);
+  };
+
+  const downloadQr = () => {
+    const svg = getQrSvg();
+    if (!svg || !attendanceUrl) {
+      showQrActionMessage('Generate a QR code first');
+      return;
+    }
+    const safeName = title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 40);
+    downloadSvgAsPng(svg, `check-in-qr-${safeName || eventId}.png`);
+    showQrActionMessage('QR downloaded');
+  };
+
+  const printQr = async () => {
+    const svg = getQrSvg();
+    if (!svg || !attendanceUrl) {
+      showQrActionMessage('Generate a QR code first');
+      return;
+    }
+    try {
+      const qrPngDataUrl = await svgToPngDataUrl(svg);
+      printQrPoster({
+        eventTitle: title,
+        eventDate: displayDate ? formatEventDate(displayDate) : undefined,
+        eventTime: displayTime,
+        location: displayLocation,
+        attendanceUrl,
+        qrPngDataUrl,
+      });
+    } catch (printError) {
+      setError(printError instanceof Error ? printError.message : 'Could not open print window');
+    }
+  };
+
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
     return attendances.filter((row) => {
@@ -372,11 +420,6 @@ function AttendanceDashboard({
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const title = eventSummary?.title ?? eventMeta?.title ?? 'Event';
-  const displayDate = eventSummary?.date ?? eventMeta?.eventDate;
-  const displayTime = eventSummary?.time ?? eventMeta?.eventTime;
-  const displayLocation = eventSummary?.location ?? eventMeta?.location;
 
   return (
     <div className="space-y-6">
@@ -446,11 +489,35 @@ function AttendanceDashboard({
 
           {attendanceUrl ? (
             <div className="mt-5 flex flex-col items-center">
-              <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-inner">
+              <div
+                ref={qrContainerRef}
+                className="rounded-xl border border-gray-100 bg-white p-3 shadow-inner"
+              >
                 <QRCodeSVG value={attendanceUrl} size={200} level="M" includeMargin />
               </div>
               <p className="mt-3 w-full break-all text-center text-[10px] text-gray-500">{attendanceUrl}</p>
-              <div className="mt-4 flex w-full flex-col gap-2">
+              {qrActionMessage ? (
+                <p className="mt-2 text-center text-[11px] font-medium text-[#0F2A56]">{qrActionMessage}</p>
+              ) : null}
+              <div className="mt-4 grid w-full grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={downloadQr}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-medium text-gray-800 hover:bg-gray-100"
+                >
+                  <Download size={14} />
+                  Download QR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void printQr()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-medium text-gray-800 hover:bg-gray-100"
+                >
+                  <Printer size={14} />
+                  Print QR
+                </button>
+              </div>
+              <div className="mt-2 flex w-full flex-col gap-2">
                 <button
                   type="button"
                   onClick={() => void copyLink()}
