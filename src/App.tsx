@@ -33,6 +33,7 @@ import { PaymentsPage } from './pages/membership/portal/PaymentsPage';
 import { ProfilePage } from './pages/membership/portal/ProfilePage';
 import { RequestsPage } from './pages/membership/portal/RequestsPage';
 import { ServiceFeedbackPage } from './pages/membership/ServiceFeedbackPage';
+import EventAttendancePage from './pages/EventAttendancePage';
 import { ROUTES } from './constants/app';
 
 const GlobalModals: React.FC = () => {
@@ -78,6 +79,7 @@ function App() {
             </PublicRoute>
           }
         />
+        <Route path={ROUTES.EVENT_ATTENDANCE_ROUTE} element={<EventAttendancePage />} />
 
         {/* ── Admin (requires admin role) ── */}
         <Route

@@ -17,6 +17,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import EventModal, { type EventFormValue } from "../components/EventModal";
+import { EventAttendancePanel } from "../components/EventAttendancePanel";
 import { api } from "../lib/api";
 
 /* TYPES */
@@ -30,6 +31,8 @@ type Event = {
   notes?: string;
   status: "Completed" | "Upcoming";
   eventTimestamp: number | null;
+  attendanceUrl?: string | null;
+  attendanceCount?: number;
 };
 
 type StatusFilter = "all" | Event["status"];
@@ -63,6 +66,8 @@ export default function Events() {
           notes?: string | null;
           companies?: unknown;
           status: "COMPLETED" | "UPCOMING";
+          attendanceUrl?: string | null;
+          attendanceCount?: number;
         }>;
       }>("/events");
 
@@ -81,6 +86,8 @@ export default function Events() {
           notes: item.notes ?? "",
           status: item.status === "COMPLETED" ? "Completed" : "Upcoming",
           eventTimestamp,
+          attendanceUrl: item.attendanceUrl ?? null,
+          attendanceCount: item.attendanceCount ?? 0,
         };
       });
       setEvents(mapped);
@@ -486,7 +493,7 @@ function EventDetailsModal({ event, onClose }: { event: Event; onClose: () => vo
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-md border border-gray-200 bg-white shadow-xl"
+        className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-md border border-gray-200 bg-white shadow-xl"
         onClick={(evt) => evt.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
@@ -512,6 +519,11 @@ function EventDetailsModal({ event, onClose }: { event: Event; onClose: () => vo
               ))}
             </div>
           </div>
+          <EventAttendancePanel
+            eventId={event.id}
+            initialAttendanceUrl={event.attendanceUrl}
+            initialCount={event.attendanceCount}
+          />
         </div>
         <div className="flex justify-end border-t border-gray-100 px-4 py-3">
           <button

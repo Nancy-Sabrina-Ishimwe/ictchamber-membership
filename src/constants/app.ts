@@ -10,6 +10,9 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   FORGOT_PASSWORD: '/forgot-password',
+  /** Public QR sign-in page (no auth). */
+  EVENT_ATTENDANCE_ROUTE: '/events/attendance/:token',
+  EVENT_ATTENDANCE: (token: string) => `/events/attendance/${token}`,
 
   // Admin
   ADMIN: '/admin',
