@@ -452,7 +452,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Hello, {user?.name ?? "Admin"} 👋</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Hello, {user?.name ?? "Admin"}</h2>
           <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
             Here is what's happening with the Membership today.
           </p>
