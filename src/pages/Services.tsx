@@ -341,7 +341,7 @@ export default function DeliveredServices() {
                   <th className="p-3 text-left">COMPANY</th>
                   <th className="p-3 text-left">CATEGORY</th>
                   <th className="p-3 text-left">DELIVERY DATE</th>
-                  <th className="p-3 text-left">PRIORITY</th>
+                  <th className="p-3 text-left">URGENCY</th>
                   <th className="p-3 text-left">ACTIONS</th>
                 </tr>
               </thead>
@@ -516,7 +516,7 @@ function RequestedServiceViewModal({ item, onClose }: { item: RequestedServiceIt
               <p className="mt-0.5">{formatDateLabel(item.preferredDeliveryDate)}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Priority</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Urgency Level</p>
               <p className="mt-0.5">{item.priority}</p>
             </div>
           </div>

@@ -11,6 +11,7 @@ import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
 import GeneralSettings from './pages/GeneralSettings';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import Members from './pages/Members';
 import MemberProfile from './pages/MemberProfile';
 import Messaging from './pages/Messaging';
@@ -70,8 +71,6 @@ function App() {
             </PublicRoute>
           }
         />
-<<<<<<< Updated upstream
-=======
         <Route
           path={ROUTES.FORGOT_PASSWORD}
           element={
@@ -80,8 +79,7 @@ function App() {
             </PublicRoute>
           }
         />
-        <Route path="/events/attendance/:token" element={<EventAttendancePage />} />
->>>>>>> Stashed changes
+        <Route path={ROUTES.EVENT_ATTENDANCE_ROUTE} element={<EventAttendancePage />} />
 
         {/* ── Admin (requires admin role) ── */}
         <Route

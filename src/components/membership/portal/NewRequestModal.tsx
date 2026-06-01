@@ -263,7 +263,7 @@ export const NewRequestModal: React.FC = () => {
             />
 
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-2">Priority Level</label>
+              <label className="text-sm font-medium text-gray-700 block mb-2">Urgency Level</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {PRIORITY_LEVELS.map((p) => (
                   <button
