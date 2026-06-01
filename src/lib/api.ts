@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:2000/api';
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'https://membership-management-backend-6si5.onrender.com/api';
 
 const TOKEN_KEY = 'ict_auth_token';
 const SESSION_KEY = 'ict_auth_user';
