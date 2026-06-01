@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import AllServiceRequestsPage from './pages/AllServiceRequestsPage';
 import DeliveredServices from './pages/DeliveredServices';
 import Events from './pages/Events';
+import EventAttendanceAdminPage from './pages/EventAttendanceAdminPage';
 import GeneralSettings from './pages/GeneralSettings';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import LoginPage from './pages/LoginPage';
@@ -208,6 +209,26 @@ function App() {
             <AdminRoute>
               <AdminShell>
                 <Events />
+              </AdminShell>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/events/attendance/:eventId"
+          element={
+            <AdminRoute>
+              <AdminShell>
+                <EventAttendanceAdminPage />
+              </AdminShell>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path={ROUTES.ADMIN_EVENT_ATTENDANCE}
+          element={
+            <AdminRoute>
+              <AdminShell>
+                <EventAttendanceAdminPage />
               </AdminShell>
             </AdminRoute>
           }

@@ -30,6 +30,8 @@ export const ROUTES = {
   ADMIN_SERVICES_REQUESTS: '/admin/services/requests',
   ADMIN_SERVICES_DELIVERED: '/admin/services/delivered',
   ADMIN_EVENTS: '/admin/events',
+  ADMIN_EVENT_ATTENDANCE: '/admin/events/attendance',
+  ADMIN_EVENT_ATTENDANCE_DETAIL: (eventId: string) => `/admin/events/attendance/${eventId}`,
   ADMIN_REPORTS: '/admin/reports',
   ADMIN_REPORTS_SERVICE_USAGE: '/admin/reports/service-usage',
   ADMIN_SETTINGS: '/admin/settings',

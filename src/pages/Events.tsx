@@ -10,15 +10,17 @@ import {
   Layers,
   MapPin,
   Plus,
+  QrCode,
   Search,
   Table2,
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import EventModal, { type EventFormValue } from "../components/EventModal";
-import { EventAttendancePanel } from "../components/EventAttendancePanel";
 import { api } from "../lib/api";
+import { ROUTES } from "../constants/app";
 
 /* TYPES */
 type Event = {
@@ -198,14 +200,23 @@ export default function Events() {
             Schedule and review chamber events with participating companies.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpenModal(true)}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-yellow-500 px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-400 transition-colors"
-        >
-          <Plus size={15} />
-          Add Event
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Link
+            to={ROUTES.ADMIN_EVENT_ATTENDANCE}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-[#0F2A56]/20 bg-white px-4 py-2 text-sm font-medium text-[#0F2A56] shadow-sm hover:bg-gray-50"
+          >
+            <QrCode size={15} />
+            Attendance center
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpenModal(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-500 px-4 py-2 text-sm font-medium transition-colors hover:bg-yellow-400"
+          >
+            <Plus size={15} />
+            Add Event
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-md shadow-sm p-3 sm:p-4 space-y-3">
@@ -519,11 +530,20 @@ function EventDetailsModal({ event, onClose }: { event: Event; onClose: () => vo
               ))}
             </div>
           </div>
-          <EventAttendancePanel
-            eventId={event.id}
-            initialAttendanceUrl={event.attendanceUrl}
-            initialCount={event.attendanceCount}
-          />
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs text-gray-500 mb-2">
+              {(event.attendanceCount ?? 0) > 0
+                ? `${event.attendanceCount} attendance sign-in(s) recorded.`
+                : 'No attendance sign-ins yet.'}
+            </p>
+            <Link
+              to={ROUTES.ADMIN_EVENT_ATTENDANCE_DETAIL(event.id)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0F2A56] py-2.5 text-xs font-semibold text-white hover:bg-[#0c2248]"
+            >
+              <QrCode size={14} />
+              Open attendance dashboard
+            </Link>
+          </div>
         </div>
         <div className="flex justify-end border-t border-gray-100 px-4 py-3">
           <button
